@@ -1,7 +1,9 @@
 # coding=utf-8
 from collections import Counter
 import os, re, codecs
-
+from gensim.models import KeyedVectors
+import pickle
+import numpy as np
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -23,6 +25,7 @@ class ConllEntry:
         self.pred_pos = None
 
         self.idChars = []
+        self.idMorphs = []
 
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
@@ -31,7 +34,7 @@ class ConllEntry:
         return '\t'.join(['_' if v is None else v for v in values])
 
 
-def vocab(conll_path):
+def vocab(conll_path,morph_path="N/A"):
     wordsCount = Counter()
     posCount = Counter()
     relCount = Counter()
@@ -45,9 +48,24 @@ def vocab(conll_path):
     c2i["EMAIL"] = 4
     c2i["URL"] = 5
 
+    m2i = {}
+    m2i["UNK"] = 0
+    m2i["<w>"] = 1
+    m2i["</w>"] = 2
+
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
+    root.idMorphs = [1, 2]
     tokens = [root]
+
+    if morph_path != "N/A":
+        morph_dict = get_morph_dict(morph_path)
+        all_morphs = []
+        for word in morph_dict.keys():
+            all_morphs += morph_dict[word]
+        all_morphs = list(set(all_morphs))
+        for idx in xrange(len(all_morphs)):
+            m2i[all_morphs[idx]] = idx+3
 
     for line in open(conll_path, 'r'):
         tok = line.strip().split('\t')
@@ -79,6 +97,21 @@ def vocab(conll_path):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
+                morphs_of_word = []
+                morphs_of_word.append(m2i["<w>"])
+                if entry.norm in morph_dict:
+                    for morph in morph_dict[entry.norm]:
+                        if morph not in m2i:
+                            morphs_of_word.append(m2i["UNK"])
+                        else:
+                            morphs_of_word.append(m2i[morph])
+                elif entry.norm in m2i:
+                    morphs_of_word.append(m2i[entry.norm])
+                else:
+                    morphs_of_word.append(m2i["UNK"])
+                morphs_of_word.append(m2i["</w>"])
+                entry.idMorphs = morphs_of_word
+
                 tokens.append(entry)
 
     if len(tokens) > 1:
@@ -86,13 +119,14 @@ def vocab(conll_path):
         posCount.update([node.pos for node in tokens if isinstance(node, ConllEntry)])
         relCount.update([node.relation for node in tokens if isinstance(node, ConllEntry)])
 
-    return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, posCount.keys(), relCount.keys())
+    return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, posCount.keys(), relCount.keys())
 
 
-def read_conll(fh, c2i):
+def read_conll(fh, c2i, morphemes):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
+    root.idMorphs = [1, 2]
     tokens = [root]
 
     for line in fh:
@@ -136,6 +170,21 @@ def read_conll(fh, c2i):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
+                morphs_of_word = []
+                morphs_of_word.append(morphemes[1]["<w>"])
+                if entry.norm in morphemes[0]:
+                    for morph in morphemes[0][entry.norm]:
+                        if morph not in morphemes[1]:
+                            morphs_of_word.append(morphemes[1]["UNK"])
+                        else:
+                            morphs_of_word.append(morphemes[1][morph])
+                elif entry.norm in morphemes[1]:
+                    morphs_of_word.append(morphemes[1][entry.norm])
+                else:
+                    morphs_of_word.append(morphemes[1]["UNK"])
+                morphs_of_word.append(morphemes[1]["</w>"])
+                entry.idMorphs = morphs_of_word
+
                 tokens.append(entry)
 
     if len(tokens) > 1:
@@ -166,45 +215,40 @@ def normalize(word):
 #except ImportError:
 #    from backports import lzma
 
-def load_embeddings_file(file_name, lower=False):
-        """
-        Load embeddings file. Uncomment comments above and below if file format is .xz
-        """
-        if not os.path.isfile(file_name):
-            print(file_name, "does not exist")
-            return {}, 0
+def load_embeddings_file(file_name, lower=False, type=None):
+    if type == None:
+        file_type = file_name.rsplit(".",1)[1] if '.' in file_name else None
+        if file_type == "p":
+            type = "pickle"
+        elif file_type == "bin":
+                type = "word2vec"
+        else:
+            type = "word2vec"
 
-        emb={}
-        print("Load pre-trained word embeddings: {}".format(file_name))
+    if type == "word2vec":
+        model = KeyedVectors.load_word2vec_format(file_name, binary=True, unicode_errors="ignore")
+        words = model.index2entity
+        vectors = {word : model[word] for word in words}
+    elif type == "pickle":
+        with open(file_name,'rb') as fp:
+            vectors = pickle.load(fp)
+        words = vectors.keys()
 
-        open_func = codecs.open
+    if "UNK" not in vectors:
+        unk = np.mean([vectors[word] for word in words], axis=0)
+        vectors["UNK"] = unk
 
-        #if file_name.endswith('.xz'):
-        #    open_func = lzma.open
-        #else:
-        #    open_func = codecs.open
+    return vectors, len(vectors["UNK"])
 
-        with open_func(file_name, 'rb') as f:
-            reader = codecs.getreader('utf-8')(f, errors='ignore')
-            reader.readline()
-
-            count = 0
-            for line in reader:
-                try:
-                    fields = line.strip().split()
-                    vec = [float(x) for x in fields[1:]]
-                    word = fields[0]
-                    if lower:
-                        word = word.lower()
-                    if word not in emb:
-                        emb[word] = vec
-                except ValueError:
-                    #print("Error converting: {}".format(line))
-                    pass
-
-                count += 1
-                if count >= 1500000:
-                    break
-        return emb, len(emb[word])
-
-
+def get_morph_dict(seqment_file):
+    morph_dict = {}
+    with open(seqment_file) as text:
+        for line in text:
+            line = line.strip()
+            index = line.split(":")[0].lower()
+            data = line.split(":")[1].split("+")[0]
+            if '-' in data:
+                morph_dict[index] = data.split("-")
+            else:
+                morph_dict[index] = [data]
+    return morph_dict

@@ -8,12 +8,15 @@ if __name__ == '__main__':
     parser.add_option("--train", dest="conll_train", help="Path to annotated CONLL train file", metavar="FILE", default="N/A")
     parser.add_option("--dev", dest="conll_dev", help="Path to annotated CONLL dev file", metavar="FILE", default="N/A")
     parser.add_option("--test", dest="conll_test", help="Path to CONLL test file", metavar="FILE", default="N/A")
+    parser.add_option("--morphs", dest="morph_path", help="Path to Morhp seqmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
+    parser.add_option("--morphvectors", dest="external_morph_embedding", help="Pre-trained morph vector embeddings", metavar="FILE")
     parser.add_option("--params", dest="params", help="Parameters file", metavar="FILE", default="model.params")
     parser.add_option("--model", dest="model", help="Load/Save model file", metavar="FILE", default="model")
     parser.add_option("--wembedding", type="int", dest="wembedding_dims", default=100)
     parser.add_option("--cembedding", type="int", dest="cembedding_dims", default=50)
+    parser.add_option("--membedding", type="int", dest="membedding_dims", default=50)
     parser.add_option("--pembedding", type="int", dest="pembedding_dims", default=100)
     parser.add_option("--epochs", type="int", dest="epochs", default=30)
     parser.add_option("--hidden", type="int", dest="hidden_units", default=100)
@@ -36,10 +39,10 @@ if __name__ == '__main__':
 
     if options.predictFlag:
         with open(options.params, 'r') as paramsfp:
-            words, w2i, c2i, pos, rels, stored_opt = pickle.load(paramsfp)
+            words, w2i, c2i, m2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
 	    stored_opt.external_embedding = None
         print 'Loading pre-trained model'
-        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, stored_opt)
+        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, stored_opt)
         parser.Load(options.model)
         
         testoutpath = os.path.join(options.output, options.conll_test_output)
@@ -69,9 +72,9 @@ if __name__ == '__main__':
 
             print 'Found a previous saved model => Loading this model'
             with open(os.path.join(options.output, options.params), 'r') as paramsfp:
-                words, w2i, c2i, pos, rels, stored_opt = pickle.load(paramsfp)
+                words, w2i, c2i, m2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
             stored_opt.external_embedding = None
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, stored_opt)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, stored_opt)
             parser.Load(os.path.join(options.output, os.path.basename(options.model)))
             parser.trainer.restart()
             if options.conll_dev != "N/A":
@@ -112,13 +115,14 @@ if __name__ == '__main__':
 
         else:
             print 'Extracting vocabulary'
-            words, w2i, c2i, pos, rels = utils.vocab(options.conll_train)
+            words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,options.morph_path)
+            morph_dict = utils.get_morph_dict(options.morph_path)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:
-                pickle.dump((words, w2i, c2i, pos, rels, options), paramsfp)
+                pickle.dump((words, w2i, c2i, m2i, morph_dict, pos, rels, options), paramsfp)
 
             #print 'Initializing joint model'
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, options)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, options)
         
 
         for epoch in xrange(options.epochs):

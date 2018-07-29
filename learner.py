@@ -8,7 +8,7 @@ import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 
 class jPosDepLearner:
-    def __init__(self, vocab, pos, rels, w2i, c2i, options):
+    def __init__(self, vocab, pos, rels, w2i, c2i, m2i, morph_dict, options):
         self.model = ParameterCollection()
         random.seed(1)
         self.trainer = AdamTrainer(self.model)
@@ -26,6 +26,7 @@ class jPosDepLearner:
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
+        self.mdims = options.membedding_dims
         self.cdims = options.cembedding_dims
         self.layers = options.lstm_layers
         self.wordsCount = vocab
@@ -33,6 +34,8 @@ class jPosDepLearner:
         self.pos = {word: ind for ind, word in enumerate(pos)}
         self.id2pos = {ind: word for ind, word in enumerate(pos)}
         self.c2i = c2i
+        self.m2i = m2i
+        self.morph_dict = morph_dict
         self.rels = {word: ind for ind, word in enumerate(rels)}
         self.irels = rels
         self.pdims = options.pembedding_dims
@@ -41,6 +44,7 @@ class jPosDepLearner:
         self.vocab['*INITIAL*'] = 2
         self.wlookup = self.model.add_lookup_parameters((len(vocab) + 3, self.wdims))
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
+        self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
 
         if options.external_embedding is not None:
@@ -54,6 +58,18 @@ class jPosDepLearner:
                     count += 1
                     self.wlookup.init_row(self.vocab[word], ext_embeddings[_word])
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
+
+        if options.external_morph_embedding is not None:
+            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_morph_embedding, lower=True)
+            assert (ext_emb_dim == self.mdims)
+            print("Initializing morph embeddings by pre-trained vectors")
+            count = 0
+            for morph in self.m2i:
+                _morph = unicode(morph, "utf-8")
+                if _morph in ext_embeddings:
+                    count += 1
+                    self.mlookup.init_row(self.m2i[morph], ext_embeddings[_morph])
+            print("Vocab size: %d; #morphs having pretrained vectors: %d" % (len(self.m2i), count))
 
         self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2, self.ldims, self.model),
                              VanillaLSTMBuilder(1, self.wdims + self.cdims * 2, self.ldims, self.model)]
@@ -75,7 +91,7 @@ class jPosDepLearner:
         self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
 
         self.hidden_units = options.hidden_units
-        
+
         self.hidBias = self.model.add_parameters((self.ldims * 8))
         self.hidLayer = self.model.add_parameters((self.hidden_units, self.ldims * 8))
         self.hid2Bias = self.model.add_parameters((self.hidden_units))
@@ -94,6 +110,7 @@ class jPosDepLearner:
                       softmax))
 
         self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
+        self.morph_rnn = RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model))
 
     def __getExpr(self, sentence, i, j):
 
@@ -147,17 +164,22 @@ class jPosDepLearner:
 
     def Predict(self, conll_path):
         with open(conll_path, 'r') as conllFP:
-            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i)):
+            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, (self.morph_dict, self.m2i))):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 for entry in conll_sentence:
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
-                    last_state = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
-                    rev_last_state = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
 
-                    entry.vec = concatenate(filter(None, [wordvec, last_state, rev_last_state]))
+                    last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in entry.idMorphs])[-1]
+                    rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[
+                        -1]
+
+                    entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
+                    #entry.vec = concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph]))
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -266,7 +288,7 @@ class jPosDepLearner:
         start = time.time()
 
         with open(conll_path, 'r') as conllFP:
-            shuffledData = list(read_conll(conllFP, self.c2i))
+            shuffledData = list(read_conll(conllFP, self.c2i, (self.morph_dict, self.m2i)))
             random.shuffle(shuffledData)
 
             errs = []
@@ -290,11 +312,16 @@ class jPosDepLearner:
                     wordvec = self.wlookup[
                         int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
 
-                    last_state = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
-                    rev_last_state = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
 
-                    entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state, rev_last_state])), 0.33)
+                    last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in entry.idMorphs])[-1]
+                    rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[
+                        -1]
+
+                    entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char])), 0.33)
+                    #entry.vec = dynet.dropout(concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph])), 0.33)
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
