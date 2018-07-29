@@ -71,14 +71,14 @@ class jPosDepLearner:
                     self.mlookup.init_row(self.m2i[morph], ext_embeddings[_morph])
             print("Vocab size: %d; #morphs having pretrained vectors: %d" % (len(self.m2i), count))
 
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2, self.ldims, self.model)]
+        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * 2, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * 2, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * 2 + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * 2 + self.pdims, self.ldims, self.model)]
             self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
@@ -178,8 +178,7 @@ class jPosDepLearner:
                     rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[
                         -1]
 
-                    entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
-                    #entry.vec = concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph]))
+                    entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -320,8 +319,7 @@ class jPosDepLearner:
                     rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[
                         -1]
 
-                    entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char])), 0.33)
-                    #entry.vec = dynet.dropout(concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph])), 0.33)
+                    entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph])), 0.33)
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
