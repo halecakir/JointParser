@@ -2,6 +2,7 @@
 from collections import Counter
 import os, re, codecs
 from gensim.models import KeyedVectors
+from gensim.models.wrappers import FastText
 import pickle
 import numpy as np
 
@@ -229,6 +230,10 @@ def load_embeddings_file(file_name, lower=False, type=None):
         model = KeyedVectors.load_word2vec_format(file_name, binary=True, unicode_errors="ignore")
         words = model.index2entity
         vectors = {word : model[word] for word in words}
+    elif type == "fasttext":
+        model = FastText.load_fasttext_format(file_name)
+        words = [w for w in model.wv.vocab]
+        vectors = {word: model[word] for word in words}
     elif type == "pickle":
         with open(file_name,'rb') as fp:
             vectors = pickle.load(fp)

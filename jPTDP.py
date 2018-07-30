@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_option("--morphs", dest="morph_path", help="Path to Morhp seqmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
+    parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default="word2vec")
     parser.add_option("--morphvectors", dest="external_morph_embedding", help="Pre-trained morph vector embeddings", metavar="FILE")
     parser.add_option("--params", dest="params", help="Parameters file", metavar="FILE", default="model.params")
     parser.add_option("--model", dest="model", help="Load/Save model file", metavar="FILE", default="model")
@@ -27,6 +28,8 @@ if __name__ == '__main__':
     parser.add_option("--lstmdims", type="int", dest="lstm_dims", default=128)
     parser.add_option("--disableblstm", action="store_false", dest="blstmFlag", default=True)
     parser.add_option("--disablelabels", action="store_false", dest="labelsFlag", default=True)
+    parser.add_option("--disablemorphrnn", action="store_false", dest="morphRnnFlag", default=True)
+    parser.add_option("--disablesuffix", action="store_false", dest="suffixFlag", default=False)
     parser.add_option("--predict", action="store_true", dest="predictFlag", default=False)
     parser.add_option("--bibi-lstm", action="store_false", dest="bibiFlag", default=True)
     parser.add_option("--disablecostaug", action="store_false", dest="costaugFlag", default=True)
@@ -40,11 +43,11 @@ if __name__ == '__main__':
     if options.predictFlag:
         with open(options.params, 'r') as paramsfp:
             words, w2i, c2i, m2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
-	    stored_opt.external_embedding = None
+        stored_opt.external_embedding = None
         print 'Loading pre-trained model'
         parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, stored_opt)
         parser.Load(options.model)
-        
+
         testoutpath = os.path.join(options.output, options.conll_test_output)
         print 'Predicting POS tags and parsing dependencies'
         #ts = time.time()
@@ -116,34 +119,36 @@ if __name__ == '__main__':
         else:
             print 'Extracting vocabulary'
             words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,options.morph_path)
-            morph_dict = utils.get_morph_dict(options.morph_path)
+            morph_dict = {}
+            if options.morph_path != "N/A":
+                morph_dict = utils.get_morph_dict(options.morph_path)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:
                 pickle.dump((words, w2i, c2i, m2i, morph_dict, pos, rels, options), paramsfp)
 
             #print 'Initializing joint model'
             parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, options)
-        
+
 
         for epoch in xrange(options.epochs):
             print '\n-----------------\nStarting epoch', epoch + 1
 
             if epoch % 10 == 0:
                 if epoch == 0:
-                    parser.trainer.restart(learning_rate=0.001) 
+                    parser.trainer.restart(learning_rate=0.001)
                 elif epoch == 10:
                     parser.trainer.restart(learning_rate=0.0005)
                 else:
                     parser.trainer.restart(learning_rate=0.00025)
 
             parser.Train(options.conll_train)
-            
-            if options.conll_dev == "N/A":  
+
+            if options.conll_dev == "N/A":
                 parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-                
-            else: 
+
+            else:
                 devPredSents = parser.Predict(options.conll_dev)
-                
+
                 count = 0
                 lasCount = 0
                 uasCount = 0
