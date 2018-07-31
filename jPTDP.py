@@ -11,8 +11,9 @@ if __name__ == '__main__':
     parser.add_option("--morphs", dest="morph_path", help="Path to Morhp seqmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
-    parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default="word2vec")
+    parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default=None)
     parser.add_option("--morphvectors", dest="external_morph_embedding", help="Pre-trained morph vector embeddings", metavar="FILE")
+    parser.add_option("--morphvectype", dest="external_morph_embedding_type", help="Pre-trained morph vector embeddings type", default=None)
     parser.add_option("--params", dest="params", help="Parameters file", metavar="FILE", default="model.params")
     parser.add_option("--model", dest="model", help="Load/Save model file", metavar="FILE", default="model")
     parser.add_option("--wembedding", type="int", dest="wembedding_dims", default=100)
@@ -26,10 +27,9 @@ if __name__ == '__main__':
     parser.add_option("--activation", type="string", dest="activation", default="tanh")
     parser.add_option("--lstmlayers", type="int", dest="lstm_layers", default=2)
     parser.add_option("--lstmdims", type="int", dest="lstm_dims", default=128)
+    parser.add_option("--morphmode", type="int", dest="morphMode", default=0) #0 No Morph, 1 Suffix, 2 Morph RNN
     parser.add_option("--disableblstm", action="store_false", dest="blstmFlag", default=True)
     parser.add_option("--disablelabels", action="store_false", dest="labelsFlag", default=True)
-    parser.add_option("--disablemorphrnn", action="store_false", dest="morphRnnFlag", default=True)
-    parser.add_option("--disablesuffix", action="store_false", dest="suffixFlag", default=False)
     parser.add_option("--predict", action="store_true", dest="predictFlag", default=False)
     parser.add_option("--bibi-lstm", action="store_false", dest="bibiFlag", default=True)
     parser.add_option("--disablecostaug", action="store_false", dest="costaugFlag", default=True)
@@ -66,6 +66,14 @@ if __name__ == '__main__':
         print("Training file: " + options.conll_train)
         if options.conll_dev != "N/A":
             print("Development file: " + options.conll_dev)
+        if options.morphMode == 0:
+            print("Morph Mode: None")
+        elif options.morphMode == 1:
+            print("Morph Mode: Suffix")
+        elif options.morphMode == 2:
+            print("Morph Mode: Morph RNN")
+        else:
+            print("Morph Mode: None - Only between 0-2")
 
         highestScore = 0.0
         eId = 0
@@ -118,10 +126,8 @@ if __name__ == '__main__':
 
         else:
             print 'Extracting vocabulary'
-            words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,options.morph_path)
-            morph_dict = {}
-            if options.morph_path != "N/A":
-                morph_dict = utils.get_morph_dict(options.morph_path)
+            morph_dict = utils.get_morph_dict(options.morph_path)
+            words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,morph_dict)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:
                 pickle.dump((words, w2i, c2i, m2i, morph_dict, pos, rels, options), paramsfp)

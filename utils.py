@@ -35,7 +35,7 @@ class ConllEntry:
         return '\t'.join(['_' if v is None else v for v in values])
 
 
-def vocab(conll_path,morph_path="N/A"):
+def vocab(conll_path,morph_dict):
     wordsCount = Counter()
     posCount = Counter()
     relCount = Counter()
@@ -58,15 +58,14 @@ def vocab(conll_path,morph_path="N/A"):
     root.idChars = [1, 2]
     root.idMorphs = [1, 2]
     tokens = [root]
-    morph_dict = {}
-    if morph_path != "N/A":
-        morph_dict = get_morph_dict(morph_path)
-        all_morphs = []
-        for word in morph_dict.keys():
-            all_morphs += morph_dict[word]
-        all_morphs = list(set(all_morphs))
-        for idx in xrange(len(all_morphs)):
-            m2i[all_morphs[idx]] = idx+3
+
+    #create morpheme indexes out of morpheme dictionary
+    all_morphs = []
+    for word in morph_dict.keys():
+        all_morphs += morph_dict[word]
+    all_morphs = list(set(all_morphs))
+    for idx in xrange(len(all_morphs)):
+        m2i[all_morphs[idx]] = idx+3
 
     for line in open(conll_path, 'r'):
         tok = line.strip().split('\t')
@@ -222,30 +221,38 @@ def load_embeddings_file(file_name, lower=False, type=None):
         if file_type == "p":
             type = "pickle"
         elif file_type == "bin":
-                type = "word2vec"
+            type = "word2vec"
+        elif file_type == "vec":
+            type = "fasttext"
         else:
             type = "word2vec"
 
     if type == "word2vec":
         model = KeyedVectors.load_word2vec_format(file_name, binary=True, unicode_errors="ignore")
         words = model.index2entity
-        vectors = {word : model[word] for word in words}
     elif type == "fasttext":
         model = FastText.load_fasttext_format(file_name)
         words = [w for w in model.wv.vocab]
-        vectors = {word: model[word] for word in words}
     elif type == "pickle":
         with open(file_name,'rb') as fp:
-            vectors = pickle.load(fp)
-        words = vectors.keys()
+            model = pickle.load(fp)
+        words = model.keys()
+
+    if lower:
+        vectors = {word.lower(): model[word] for word in words}
+    else:
+        vectors = {word: model[word] for word in words}
 
     if "UNK" not in vectors:
-        unk = np.mean([vectors[word] for word in words], axis=0)
+        unk = np.mean([vectors[word] for word in vectors.keys()], axis=0)
         vectors["UNK"] = unk
 
     return vectors, len(vectors["UNK"])
 
 def get_morph_dict(seqment_file):
+    if seqment_file == "N/A":
+        return {}
+
     morph_dict = {}
     with open(seqment_file) as text:
         for line in text:
