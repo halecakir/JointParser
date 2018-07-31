@@ -58,7 +58,7 @@ def vocab(conll_path,morph_path="N/A"):
     root.idChars = [1, 2]
     root.idMorphs = [1, 2]
     tokens = [root]
-
+    morph_dict = {}
     if morph_path != "N/A":
         morph_dict = get_morph_dict(morph_path)
         all_morphs = []
