@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_option("--predict", action="store_true", dest="predictFlag", default=False)
     parser.add_option("--bibi-lstm", action="store_false", dest="bibiFlag", default=True)
     parser.add_option("--disablecostaug", action="store_false", dest="costaugFlag", default=True)
+    parser.add_option("--disablelower", action="store_false", dest="lowerCase", default=True)
     parser.add_option("--dynet-seed", type="int", dest="seed", default=0)
     parser.add_option("--dynet-mem", type="int", dest="mem", default=0)
 
@@ -126,7 +127,7 @@ if __name__ == '__main__':
 
         else:
             print 'Extracting vocabulary'
-            morph_dict = utils.get_morph_dict(options.morph_path)
+            morph_dict = utils.get_morph_dict(options.morph_path, options.lowerCase)
             words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,morph_dict)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:

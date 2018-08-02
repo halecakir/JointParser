@@ -24,6 +24,7 @@ class jPosDepLearner:
         self.costaugFlag = options.costaugFlag
         self.bibiFlag = options.bibiFlag
         self.morphMode = options.morphMode if options.morphMode >= 0 and options.morphMode <= 2 else 0
+        self.lowerCase = options.lowerCase
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
@@ -49,24 +50,24 @@ class jPosDepLearner:
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
 
         if options.external_embedding is not None:
-            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=True, type=options.external_embedding_type)
+            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
             assert (ext_emb_dim == self.wdims)
             print("Initializing word embeddings by pre-trained vectors")
             count = 0
             for word in self.vocab:
-                _word = unicode(word, "utf-8")
+                _word = unicode(word.lower(), "utf-8") if self.lowerCase else unicode(word, "utf-8")
                 if _word in ext_embeddings:
                     count += 1
                     self.wlookup.init_row(self.vocab[word], ext_embeddings[_word])
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
 
         if self.morphMode > 0 and options.external_morph_embedding is not None:
-            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_morph_embedding, lower=True, type=options.external_morph_embedding_type)
+            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_morph_embedding, lower=self.lowerCase, type=options.external_morph_embedding_type)
             assert (ext_emb_dim == self.mdims)
             print("Initializing morph embeddings by pre-trained vectors")
             count = 0
             for morph in self.m2i:
-                _morph = unicode(morph, "utf-8")
+                _morph = unicode(morph.lower(), "utf-8") if self.lowerCase else unicode(morph, "utf-8")
                 if _morph in ext_embeddings:
                     count += 1
                     self.mlookup.init_row(self.m2i[morph], ext_embeddings[_morph])

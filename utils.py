@@ -249,7 +249,7 @@ def load_embeddings_file(file_name, lower=False, type=None):
 
     return vectors, len(vectors["UNK"])
 
-def get_morph_dict(seqment_file):
+def get_morph_dict(seqment_file, lowerCase):
     if seqment_file == "N/A":
         return {}
 
@@ -257,7 +257,7 @@ def get_morph_dict(seqment_file):
     with open(seqment_file) as text:
         for line in text:
             line = line.strip()
-            index = line.split(":")[0].lower()
+            index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
             data = line.split(":")[1].split("+")[0]
             if '-' in data:
                 morph_dict[index] = data.split("-")
