@@ -8,7 +8,8 @@ if __name__ == '__main__':
     parser.add_option("--train", dest="conll_train", help="Path to annotated CONLL train file", metavar="FILE", default="N/A")
     parser.add_option("--dev", dest="conll_dev", help="Path to annotated CONLL dev file", metavar="FILE", default="N/A")
     parser.add_option("--test", dest="conll_test", help="Path to CONLL test file", metavar="FILE", default="N/A")
-    parser.add_option("--morphs", dest="morph_path", help="Path to Morhp seqmentation file", metavar="FILE", default="N/A")
+    parser.add_option("--goldmorph", dest="gold_morph_path", help="Path to Morph seqmentation file", metavar="FILE", default="N/A")
+    parser.add_option("--unmorph", dest="un_morph_path", help="Path to Morph seqmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
     parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default=None)
@@ -27,7 +28,8 @@ if __name__ == '__main__':
     parser.add_option("--activation", type="string", dest="activation", default="tanh")
     parser.add_option("--lstmlayers", type="int", dest="lstm_layers", default=2)
     parser.add_option("--lstmdims", type="int", dest="lstm_dims", default=128)
-    parser.add_option("--morphmode", type="int", dest="morphMode", default=0) #0 No Morph, 1 Suffix, 2 Morph RNN
+    parser.add_option("--morphdims", type="int", dest="morph_dims", default=300)
+    parser.add_option("--disablemorph", action="store_false", dest="morphFlag", default=True)
     parser.add_option("--disableblstm", action="store_false", dest="blstmFlag", default=True)
     parser.add_option("--disablelabels", action="store_false", dest="labelsFlag", default=True)
     parser.add_option("--predict", action="store_true", dest="predictFlag", default=False)
@@ -43,10 +45,10 @@ if __name__ == '__main__':
 
     if options.predictFlag:
         with open(options.params, 'r') as paramsfp:
-            words, w2i, c2i, m2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
+            words, w2i, c2i, m2i, morph_dict_array, morph_gold, pos, rels, stored_opt = pickle.load(paramsfp)
         stored_opt.external_embedding = None
         print 'Loading pre-trained model'
-        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, stored_opt)
+        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict_array, morph_gold, stored_opt)
         parser.Load(options.model)
 
         testoutpath = os.path.join(options.output, options.conll_test_output)
@@ -67,14 +69,6 @@ if __name__ == '__main__':
         print("Training file: " + options.conll_train)
         if options.conll_dev != "N/A":
             print("Development file: " + options.conll_dev)
-        if options.morphMode == 0:
-            print("Morph Mode: None")
-        elif options.morphMode == 1:
-            print("Morph Mode: Suffix")
-        elif options.morphMode == 2:
-            print("Morph Mode: Morph RNN")
-        else:
-            print("Morph Mode: None - Only between 0-2")
 
         highestScore = 0.0
         eId = 0
@@ -84,9 +78,9 @@ if __name__ == '__main__':
 
             print 'Found a previous saved model => Loading this model'
             with open(os.path.join(options.output, options.params), 'r') as paramsfp:
-                words, w2i, c2i, m2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
+                words, w2i, c2i, m2i, morph_dict_array, morph_gold, pos, rels, stored_opt = pickle.load(paramsfp)
             stored_opt.external_embedding = None
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, stored_opt)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict_array, morph_gold, stored_opt)
             parser.Load(os.path.join(options.output, os.path.basename(options.model)))
             parser.trainer.restart()
             if options.conll_dev != "N/A":
@@ -127,14 +121,16 @@ if __name__ == '__main__':
 
         else:
             print 'Extracting vocabulary'
-            morph_dict = utils.get_morph_dict(options.morph_path, options.lowerCase)
-            words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,morph_dict)
+            morph_dict = utils.get_morph_dict(options.gold_morph_path, options.lowerCase)
+            morph_dict_array = utils.get_morph_dict_array(options.un_morph_path, options.lowerCase)
+            morph_gold = utils.get_morph_gold(morph_dict, morph_dict_array)
+            words, w2i, c2i, m2i, pos, rels = utils.vocab(options.conll_train,morph_dict_array)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:
-                pickle.dump((words, w2i, c2i, m2i, morph_dict, pos, rels, options), paramsfp)
+                pickle.dump((words, w2i, c2i, m2i, morph_dict_array, morph_gold, pos, rels, options), paramsfp)
 
             #print 'Initializing joint model'
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict, options)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, morph_dict_array, morph_gold, options)
 
 
         for epoch in xrange(options.epochs):

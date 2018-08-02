@@ -35,7 +35,7 @@ class ConllEntry:
         return '\t'.join(['_' if v is None else v for v in values])
 
 
-def vocab(conll_path,morph_dict):
+def vocab(conll_path, morph_dict_array):
     wordsCount = Counter()
     posCount = Counter()
     relCount = Counter()
@@ -56,13 +56,14 @@ def vocab(conll_path,morph_dict):
 
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [1, 2]
+    root.idMorphs = [[1, 2]]
     tokens = [root]
 
     #create morpheme indexes out of morpheme dictionary
     all_morphs = []
-    for word in morph_dict.keys():
-        all_morphs += morph_dict[word]
+    for word in morph_dict_array.keys():
+        for morphs in morph_dict_array[word]:
+            all_morphs += morphs
     all_morphs = list(set(all_morphs))
     for idx in xrange(len(all_morphs)):
         m2i[all_morphs[idx]] = idx+3
@@ -98,18 +99,22 @@ def vocab(conll_path,morph_dict):
                     entry.idChars = chars_of_word
 
                 morphs_of_word = []
-                morphs_of_word.append(m2i["<w>"])
-                if entry.norm in morph_dict:
-                    for morph in morph_dict[entry.norm]:
-                        if morph not in m2i:
-                            morphs_of_word.append(m2i["UNK"])
-                        else:
-                            morphs_of_word.append(m2i[morph])
+                if entry.norm in morph_dict_array:
+                    for idx in xrange(len(morph_dict_array[entry.norm])):
+                        morphs_of_word_instance = []
+                        morphs_of_word_instance.append(m2i["<w>"])
+                        morph_seq = morph_dict_array[entry.norm][idx]
+                        for morph in morph_seq:
+                            if morph not in m2i:
+                                morphs_of_word_instance.append(m2i["UNK"])
+                            else:
+                                morphs_of_word_instance.append(m2i[morph])
+                        morphs_of_word_instance.append(m2i["<w>"])
+                        morphs_of_word.append(morphs_of_word_instance)
                 elif entry.norm in m2i:
-                    morphs_of_word.append(m2i[entry.norm])
+                    morphs_of_word = [[m2i["<w>"],m2i[entry.norm],m2i["</w>"]]]
                 else:
-                    morphs_of_word.append(m2i["UNK"])
-                morphs_of_word.append(m2i["</w>"])
+                    morphs_of_word = [[m2i["<w>"],m2i["UNK"],m2i["</w>"]]]
                 entry.idMorphs = morphs_of_word
 
                 tokens.append(entry)
@@ -122,11 +127,11 @@ def vocab(conll_path,morph_dict):
     return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, posCount.keys(), relCount.keys())
 
 
-def read_conll(fh, c2i, morphemes):
+def read_conll(fh, c2i, morph_dict_array, m2i):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [1, 2]
+    root.idMorphs = [[1, 2]]
     tokens = [root]
 
     for line in fh:
@@ -171,18 +176,22 @@ def read_conll(fh, c2i, morphemes):
                     entry.idChars = chars_of_word
 
                 morphs_of_word = []
-                morphs_of_word.append(morphemes[1]["<w>"])
-                if entry.norm in morphemes[0]:
-                    for morph in morphemes[0][entry.norm]:
-                        if morph not in morphemes[1]:
-                            morphs_of_word.append(morphemes[1]["UNK"])
-                        else:
-                            morphs_of_word.append(morphemes[1][morph])
-                elif entry.norm in morphemes[1]:
-                    morphs_of_word.append(morphemes[1][entry.norm])
+                if entry.norm in morph_dict_array:
+                    for idx in xrange(len(morph_dict_array[entry.norm])):
+                        morphs_of_word_instance = []
+                        morphs_of_word_instance.append(m2i["<w>"])
+                        morph_seq = morph_dict_array[entry.norm][idx]
+                        for morph in morph_seq:
+                            if morph not in m2i:
+                                morphs_of_word_instance.append(m2i["UNK"])
+                            else:
+                                morphs_of_word_instance.append(m2i[morph])
+                        morphs_of_word_instance.append(m2i["<w>"])
+                        morphs_of_word.append(morphs_of_word_instance)
+                elif entry.norm in m2i:
+                    morphs_of_word = [[m2i["<w>"],m2i[entry.norm],m2i["</w>"]]]
                 else:
-                    morphs_of_word.append(morphemes[1]["UNK"])
-                morphs_of_word.append(morphemes[1]["</w>"])
+                    morphs_of_word = [[m2i["<w>"],m2i["UNK"],m2i["</w>"]]]
                 entry.idMorphs = morphs_of_word
 
                 tokens.append(entry)
@@ -264,3 +273,44 @@ def get_morph_dict(seqment_file, lowerCase):
             else:
                 morph_dict[index] = [data]
     return morph_dict
+
+def get_morph_dict_array(seqment_file, lowerCase):
+    if seqment_file == "N/A":
+        return {}
+
+    morph_dict = {}
+    with open(seqment_file) as text:
+        for line in text:
+            line = line.strip()
+            index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
+            datas = line.split(":")[1].split("+")
+            word_seq = []
+            for data in datas:
+                if data != "###":
+                    if '-' in data:
+                        word_seq.append(data.split("-"))
+                    else:
+                        word_seq.append([data])
+            morph_dict[index] = word_seq
+    return morph_dict
+
+def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
+    gold_data = []
+    for index in unsupervised_morph_dict.keys():
+        gold = []
+        if index in gold_morph_dict:
+            gold_seq = gold_morph_dict[index]
+            for un_seq in unsupervised_morph_dict[index]:
+                if len(un_seq) != len(gold_seq):
+                    gold.append(0)
+                else:
+                    for gold_morph, un_morph in zip(gold_seq, un_seq):
+                        if gold_morph == un_morph:
+                            gold.append(1)
+                        else:
+                            gold.append(0)
+        else:
+            gold = [0 for i in xrange(len(unsupervised_morph_dict[index]))]
+        gold_data.append(gold)
+
+    return gold_data
