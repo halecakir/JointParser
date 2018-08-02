@@ -28,6 +28,9 @@ class ConllEntry:
         self.idChars = []
         self.idMorphs = []
 
+        self.seq_vec = []
+        self.seq_emb = []
+
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
                   str(self.pred_parent_id) if self.pred_parent_id is not None else None, self.pred_relation, self.deps,
@@ -295,7 +298,7 @@ def get_morph_dict_array(seqment_file, lowerCase):
     return morph_dict
 
 def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
-    gold_data = []
+    gold_data = {}
     for index in unsupervised_morph_dict.keys():
         gold = []
         if index in gold_morph_dict:
@@ -311,6 +314,6 @@ def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
                             gold.append(0)
         else:
             gold = [0 for i in xrange(len(unsupervised_morph_dict[index]))]
-        gold_data.append(gold)
+        gold_data[index] = gold
 
     return gold_data

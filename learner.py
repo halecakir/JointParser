@@ -39,6 +39,7 @@ class jPosDepLearner:
         self.c2i = c2i
         self.m2i = m2i
         self.morph_dict_array = morph_dict_array
+        self.morph_gold = morph_gold
         self.rels = {word: ind for ind, word in enumerate(rels)}
         self.irels = rels
         self.pdims = options.pembedding_dims
@@ -63,22 +64,22 @@ class jPosDepLearner:
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
 
 
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims, self.ldims, self.model)]
+        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 +self.wdims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model)]
             self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
-            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model)]
         else:
-            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims, self.ldims, self.model),
-                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims, self.ldims, self.model)]
+            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model),
+                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model)]
 
         self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
 
@@ -101,11 +102,11 @@ class jPosDepLearner:
                 Layer(self.model, self.hidden_units if self.hidden_units > 0 else self.ldims * 8, len(self.irels),
                       softmax))
         if self.morphFlag:
-            self.morph_builders = [VanillaLSTMBuilder(1, int(self.mdims/4), self.mdims, self.model),
-                             VanillaLSTMBuilder(1, int(self.mdims/4), self.mdims, self.model)]
-            self.morph_hidLayer = self.model.add_parameters((self.mdims, self.mdims*2))
-            self.morph_attW = self.model.add_parameters((self.mdims, self.mdims))
-            self.morph_attV = self.model.add_parameters((1, self.mdims))
+            self.morph_lstm = [RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model)),
+                                RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model))]
+            self.morph_hidLayer = self.model.add_parameters((self.wdims, self.mdims*2))
+            self.morph_attW = self.model.add_parameters((self.wdims, self.wdims))
+            self.morph_attV = self.model.add_parameters((1, self.wdims))
 
 
         self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
@@ -140,7 +141,7 @@ class jPosDepLearner:
         return -dynet.log(dynet.pick(pred, gold))
 
     def pick_cos_prox(self, pred, gold):
-        return dynet.cdiv(dynet.dot_product(pred, y), (dynet.squared_norm(pred)*dynet.squared_norm(y)))
+        return dynet.cdiv(dynet.dot_product(pred, gold), (dynet.squared_norm(pred)*dynet.squared_norm(gold)))
 
     def __getRelVector(self, sentence, i, j):
         if sentence[i].rheadfov is None:
@@ -176,20 +177,19 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
-                        for idx in xrange(len(entry.idMorphs)):
-                            morph_seq = entry.idMorphs[idx]
+                        seq_vec = []
+                        seq_emb = []
+                        for morph_seq in entry.idMorphs:
+                            morph_lstm_forward = self.morph_lstm[0].predict_sequence([self.mlookup[m] for m in morph_seq])[-1]
+                            morph_lstm_backward = self.morph_lstm[1].predict_sequence([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
-                            lstm_forward = self.morph_builders[0].initial_state()
-                            lstm_backward = self.morph_builders[1].initial_state()
+                            morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
+                            morph_vec = self.morph_hidLayer.expr() * self.activation(morph_lstms)
+                            seq_vec.append(dynet.softmax(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec)))
+                            seq_emb.append(dynet.cmult(morph_vec, seq_vec[-1]))
+                        morph_emb = dynet.esum(seq_emb)
 
-                            lstm_forward.add_input([self.mlookup[m] for m in morph_seq])
-                            lstm_backward.add_input([self.mlookup[m] for m in reversed(morph_seq)])
-
-                            morph_lstms = [lstm_forward.output(),lstm_backward.output()]
-                            morph_vec = self.morph_hidLayer.expr() * self.activation(concatenate(morph_lstms))
-                            entry.seq_vec[idx] = dynet.softmax(self.morph_hidLayer.expr() * self.activation(self.morph_attW.expr() * entry.morph_vec))
-                            entry.morph_emb[idx] = dynet.cmult(entry.morph_vec, entry.seq_vec)
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, dynet.cumsum(entry.morph_emb)]))
+                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, entry.morph_emb]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
@@ -306,6 +306,8 @@ class jPosDepLearner:
             errs = []
             lerrs = []
             posErrs = []
+            mErrs = []
+            seqErrs = []
 
             for iSentence, sentence in enumerate(shuffledData):
                 if iSentence % 500 == 0 and iSentence != 0:
@@ -329,21 +331,25 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
-                        for idx in xrange(len(entry.idMorphs)):
-                            morph_seq = entry.idMorphs[idx]
-                            print(morph_seq)
+                        seq_vec = []
+                        seq_emb = []
+                        for morph_seq in entry.idMorphs:
+                            morph_lstm_forward = self.morph_lstm[0].predict_sequence([self.mlookup[m] for m in morph_seq])[-1]
+                            morph_lstm_backward = self.morph_lstm[1].predict_sequence([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
-                            lstm_forward = self.morph_builders[0].initial_state()
-                            lstm_backward = self.morph_builders[1].initial_state()
+                            morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
+                            morph_vec = self.morph_hidLayer.expr() * self.activation(morph_lstms)
+                            seq_vec.append(dynet.softmax(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec)))
+                            seq_emb.append(dynet.cmult(morph_vec, seq_vec[-1]))
+                        morph_emb = dynet.esum(seq_emb)
 
-                            lstm_forward.add_input([self.mlookup[m] for m in morph_seq])
-                            lstm_backward.add_input([self.mlookup[m] for m in reversed(morph_seq)])
-
-                            morph_lstms = [lstm_forward.output(),lstm_backward.output()]
-                            morph_vec = self.morph_hidLayer.expr() * self.activation(concatenate(morph_lstms))
-                            entry.seq_vec[idx] = dynet.softmax(self.morph_hidLayer.expr() * self.activation(self.morph_attW.expr() * entry.morph_vec))
-                            entry.morph_emb[idx] = dynet.cmult(entry.morph_vec, entry.seq_vec)
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, dynet.cumsum(entry.morph_emb)]))
+                        mErrs.append(self.pick_cos_prox(morph_emb, wordvec))
+                        morph_gold = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else [0 for i in xrange(len(entry.idMorphs))]
+                        '''#FIX: Problem in error calculation for seqmentation
+                        for pred, gold in zip(seq_vec, morph_gold):
+                            seqErrs.append(self.pick_neg_log(pred, gold))
+                        '''
+                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
@@ -438,13 +444,15 @@ class jPosDepLearner:
 
                 if iSentence % 1 == 0:
                     if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs))
+                        eerrs = (esum(errs + lerrs + posErrs + mErrs + seqErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
                         errs = []
                         lerrs = []
                         posErrs = []
+                        mErrs = []
+                        seqErrs = []
 
                     renew_cg()
 
