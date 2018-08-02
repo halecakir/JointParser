@@ -326,7 +326,7 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphMode == 1:
-                        suffixvec = self.mlookup[int(self.m2i.get(entry.norm, 0)) if dropFlag else 0] if self.mdims > 0 else None
+                        suffixvec = self.mlookup[entry.idMorphs[-2]] if self.mdims > 0 else None
                         entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, suffixvec, last_state_char, rev_last_state_char])), 0.33)
                     elif self.morphMode == 2:
                         last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in entry.idMorphs])[-1]
