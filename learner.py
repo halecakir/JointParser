@@ -189,7 +189,7 @@ class jPosDepLearner:
                             seq_emb.append(dynet.cmult(morph_vec, seq_vec[-1]))
                         morph_emb = dynet.esum(seq_emb)
 
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, entry.morph_emb]))
+                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
