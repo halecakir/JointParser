@@ -316,3 +316,7 @@ def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
             if index not in gold_data:
                 gold_data[index] = 0
     return gold_data
+
+def mean_absolute_percentage_error(y_true, y_pred):
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100

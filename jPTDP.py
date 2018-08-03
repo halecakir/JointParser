@@ -2,7 +2,6 @@
 from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
 
-
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("--train", dest="conll_train", help="Path to annotated CONLL train file", metavar="FILE", default="N/A")
@@ -90,6 +89,8 @@ if __name__ == '__main__':
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
+                seqCount = 0
+                membErr = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
@@ -105,11 +106,16 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
+                        if entry.seq == entry.pred_seq:
+                            seqCount += 1
+                        membErr += utils.mean_absolute_percentage_error(entry.morph, entry.pred_morph)
                         count += 1
 
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
+                print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
+                print "MEMB error perc.:\t%.2f" % (float(membErr)/ count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
 
                 score = float(poslasCount) * 100 / count
@@ -156,6 +162,8 @@ if __name__ == '__main__':
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
+                seqCount = 0
+                membErr = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
@@ -171,11 +179,16 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
+                        if entry.seq == entry.pred_seq:
+                            seqCount += 1
+                        membErr += utils.mean_absolute_percentage_error(entry.morph, entry.pred_morph)
                         count += 1
                         
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
+                print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
+                print "MEMB error perc.:\t%.2f" % (float(membErr)/ count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
                 
                 score = float(poslasCount) * 100 / count
