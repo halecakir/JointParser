@@ -317,6 +317,13 @@ def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
                 gold_data[index] = 0
     return gold_data
 
-def mean_absolute_percentage_error(y_true, y_pred):
+def mean_absolute_percentage_acc(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
-    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    factor = np.ones(y_true.shape)
+
+    for i, (t, p) in enumerate(zip(y_true, y_pred)):
+        if int(t/abs(t)) != int(p/abs(p)):
+            factor[i] *= 2
+
+    y_true_abs, y_pred_abs = np.abs(y_true), np.abs(y_pred)
+    return (1 - np.mean(np.abs((y_true - y_pred) / (np.maximum(y_true_abs, y_pred_abs) * factor)))) * 100

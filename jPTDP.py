@@ -90,7 +90,7 @@ if __name__ == '__main__':
                 uasCount = 0
                 posCount = 0
                 seqCount = 0
-                membErr = 0
+                membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
@@ -108,14 +108,14 @@ if __name__ == '__main__':
                             uasCount += 1
                         if entry.seq == entry.pred_seq:
                             seqCount += 1
-                        membErr += utils.mean_absolute_percentage_error(entry.morph, entry.pred_morph)
+                        membAcc += utils.mean_absolute_percentage_acc(entry.morph, entry.pred_morph)
                         count += 1
 
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
                 print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
-                print "MEMB error perc.:\t%.2f" % (float(membErr)/ count)
+                print "MEMB accuracy:\t%.2f" % (float(membAcc) / count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
 
                 score = float(poslasCount) * 100 / count
@@ -163,7 +163,7 @@ if __name__ == '__main__':
                 uasCount = 0
                 posCount = 0
                 seqCount = 0
-                membErr = 0
+                membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
@@ -181,14 +181,14 @@ if __name__ == '__main__':
                             uasCount += 1
                         if entry.seq == entry.pred_seq:
                             seqCount += 1
-                        membErr += utils.mean_absolute_percentage_error(entry.morph, entry.pred_morph)
+                        membAcc += utils.mean_absolute_percentage_acc(entry.morph, entry.pred_morph)
                         count += 1
                         
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
                 print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
-                print "MEMB error perc.:\t%.2f" % (float(membErr)/ count)
+                print "MEMB accuracy:\t%.2f" % (float(membAcc) / count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
                 
                 score = float(poslasCount) * 100 / count
