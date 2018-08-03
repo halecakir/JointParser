@@ -178,16 +178,21 @@ class jPosDepLearner:
 
                     if self.morphFlag:
                         seq_vec = []
-                        seq_emb = []
+                        morph_vec = []
                         for morph_seq in entry.idMorphs:
                             morph_lstm_forward = self.morph_lstm[0].predict_sequence([self.mlookup[m] for m in morph_seq])[-1]
                             morph_lstm_backward = self.morph_lstm[1].predict_sequence([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
                             morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec = self.morph_hidLayer.expr() * self.activation(morph_lstms)
-                            seq_vec.append(dynet.softmax(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec)))
-                            seq_emb.append(dynet.cmult(morph_vec, seq_vec[-1]))
-                        morph_emb = dynet.esum(seq_emb)
+                            morph_vec.append(self.morph_hidLayer.expr() * self.activation(morph_lstms))
+                            seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1]))
+
+                        seq_att = dynet.softmax(concatenate(seq_vec))
+                        seq_att_r = dynet.reshape(seq_att, (seq_att.dim()[0][0], 1))
+                        seq_morph = concatenate(morph_vec)
+                        seq_morph_r = dynet.reshape(seq_morph, (int(seq_morph.dim()[0][0]/self.wdims), self.wdims))
+                        seq_emb = dynet.cmult(seq_att_r,seq_morph_r)
+                        morph_emb = dynet.sum_dim(seq_emb,[0])
 
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
                     else:
@@ -332,23 +337,25 @@ class jPosDepLearner:
 
                     if self.morphFlag:
                         seq_vec = []
-                        seq_emb = []
+                        morph_vec = []
                         for morph_seq in entry.idMorphs:
                             morph_lstm_forward = self.morph_lstm[0].predict_sequence([self.mlookup[m] for m in morph_seq])[-1]
                             morph_lstm_backward = self.morph_lstm[1].predict_sequence([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
                             morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec = self.morph_hidLayer.expr() * self.activation(morph_lstms)
-                            seq_vec.append(dynet.softmax(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec)))
-                            seq_emb.append(dynet.cmult(morph_vec, seq_vec[-1]))
-                        morph_emb = dynet.esum(seq_emb)
+                            morph_vec.append(self.morph_hidLayer.expr() * self.activation(morph_lstms))
+                            seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1]))
+
+                        seq_att = dynet.softmax(concatenate(seq_vec))
+                        seq_att_r = dynet.reshape(seq_att, (seq_att.dim()[0][0], 1))
+                        seq_morph = concatenate(morph_vec)
+                        seq_morph_r = dynet.reshape(seq_morph, (int(seq_morph.dim()[0][0]/self.wdims), self.wdims))
+                        seq_emb = dynet.cmult(seq_att_r,seq_morph_r)
+                        morph_emb = dynet.sum_dim(seq_emb,[0])
 
                         mErrs.append(self.pick_cos_prox(morph_emb, wordvec))
-                        morph_gold = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else [0 for i in xrange(len(entry.idMorphs))]
-                        '''#FIX: Problem in error calculation for seqmentation
-                        for pred, gold in zip(seq_vec, morph_gold):
-                            seqErrs.append(self.pick_neg_log(pred, gold))
-                        '''
+                        morph_gold = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
+                        seqErrs.append(self.pick_neg_log(seq_att, morph_gold))
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))

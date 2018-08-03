@@ -299,21 +299,20 @@ def get_morph_dict_array(seqment_file, lowerCase):
 
 def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
     gold_data = {}
+
     for index in unsupervised_morph_dict.keys():
-        gold = []
         if index in gold_morph_dict:
             gold_seq = gold_morph_dict[index]
+            idx = 0
             for un_seq in unsupervised_morph_dict[index]:
-                if len(un_seq) != len(gold_seq):
-                    gold.append(0)
-                else:
-                    for gold_morph, un_morph in zip(gold_seq, un_seq):
-                        if gold_morph == un_morph:
-                            gold.append(1)
-                        else:
-                            gold.append(0)
-        else:
-            gold = [0 for i in xrange(len(unsupervised_morph_dict[index]))]
-        gold_data[index] = gold
-
+                if len(un_seq) == len(gold_seq):
+                    FLAG = True
+                    for un, gold in zip(un_seq, gold_seq):
+                        if un != gold:
+                            FLAG = False
+                    if FLAG:
+                        gold_data[index] = idx
+                idx += 1
+            if index not in gold_data:
+                gold_data[index] = 0
     return gold_data
