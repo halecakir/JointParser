@@ -289,7 +289,7 @@ def get_morph_dict_array(seqment_file, lowerCase):
             datas = line.split(":")[1].split("+")
             word_seq = []
             for data in datas:
-                if data != "###":
+                if data != "###" or len(data) != 0:
                     if '-' in data:
                         word_seq.append(data.split("-"))
                     else:

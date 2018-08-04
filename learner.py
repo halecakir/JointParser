@@ -141,7 +141,18 @@ class jPosDepLearner:
         return -dynet.log(dynet.pick(pred, gold))
 
     def pick_cos_prox(self, pred, gold):
-        return dynet.cdiv(dynet.dot_product(pred, gold), (dynet.l2_norm(pred)*dynet.l2_norm(gold)))
+        def l2_normalize(x):
+            epsilon = np.finfo(float).eps * dynet.ones(pred.dim()[0])
+
+            norm = dynet.sqrt(dynet.sum_elems(dynet.square(x)))
+            sign = dynet.cdiv(x, dynet.bmax(dynet.abs(x),epsilon))
+
+            return dynet.cdiv(dynet.cmult(sign, dynet.bmax(dynet.abs(x), epsilon)), dynet.bmax(norm, epsilon[0]))
+
+        y_true = l2_normalize(pred)
+        y_pred = l2_normalize(gold)
+
+        return dynet.mean_elems(dynet.cmult(y_true, y_pred))
 
     def __getRelVector(self, sentence, i, j):
         if sentence[i].rheadfov is None:
@@ -202,10 +213,10 @@ class jPosDepLearner:
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
-                        entry.pred_morph = morph_emb.vec_value()
                         entry.pred_seq = np.argmax(seq_att.vec_value())
-                        entry.morph = wordvec.vec_value()
+                        entry.pred_morph = morph_vec[entry.pred_seq].vec_value()
                         entry.seq = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
+                        entry.morph = wordvec.vec_value()
 
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
                     else:
