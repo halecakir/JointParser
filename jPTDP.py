@@ -108,7 +108,7 @@ if __name__ == '__main__':
                             uasCount += 1
                         if entry.seq == entry.pred_seq:
                             seqCount += 1
-                        membAcc += utils.mean_absolute_percentage_acc(entry.morph, entry.pred_morph)
+                        membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
                         count += 1
 
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                             uasCount += 1
                         if entry.seq == entry.pred_seq:
                             seqCount += 1
-                        membAcc += utils.mean_absolute_percentage_acc(entry.morph, entry.pred_morph)
+                        membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
                         count += 1
                         
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
