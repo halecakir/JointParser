@@ -318,9 +318,13 @@ def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
     return gold_data
 
 def percentage_arccosine_similarity(y_true, y_pred):
-    y_true, y_pred = np.array(y_true), np.array(y_pred)
-    x = np.sum(np.dot(y_true, y_pred))
-    y = np.linalg.norm(y_true) * np.linalg.norm(y_pred)
+    def l2_normalize(x):
+        norm = np.sqrt(np.sum(np.square(x)))
+        return np.sign(x) * np.maximum(np.abs(x), np.finfo(float).eps) / np.maximum(norm, np.finfo(float).eps)
 
-    out = x/y if y != 0 else -1
-    return  (1 - np.arccos(out)/np.pi) * 100.0
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    factor = np.mean(l2_normalize(np.ones(y_true.shape)) * l2_normalize(np.ones(y_pred.shape)))
+
+    y_true = l2_normalize(y_true)
+    y_pred = l2_normalize(y_pred)
+    return (1 - np.arccos(np.mean(y_true * y_pred) / factor)/np.pi) * 100
