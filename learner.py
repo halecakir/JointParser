@@ -102,9 +102,9 @@ class jPosDepLearner:
                 Layer(self.model, self.hidden_units if self.hidden_units > 0 else self.ldims * 8, len(self.irels),
                       softmax))
         if self.morphFlag:
-            self.morph_lstm = [VanillaLSTMBuilder(1, self.mdims, self.mdims, self.model),
-                                VanillaLSTMBuilder(1, self.mdims, self.mdims, self.model)]
-            self.morph_hidLayer = self.model.add_parameters((self.wdims, self.mdims*2))
+            self.morph_lstm = [VanillaLSTMBuilder(1, self.mdims, self.wdims, self.model),
+                                VanillaLSTMBuilder(1, self.mdims, self.wdims, self.model)]
+            self.morph_hidLayer = self.model.add_parameters((self.wdims, self.wdims*2))
             self.morph_attW = self.model.add_parameters((self.wdims, self.wdims))
             self.morph_attV = self.model.add_parameters((1, self.wdims))
 
@@ -209,7 +209,7 @@ class jPosDepLearner:
                             morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
                             morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec.append(self.morph_hidLayer.expr() * self.activation(morph_lstms)) #morph based word embedding for each seqmentation
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
@@ -370,7 +370,7 @@ class jPosDepLearner:
                             morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
                             morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec.append(self.morph_hidLayer.expr() * self.activation(morph_lstms)) #morph based word embedding for each seqmentation
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
