@@ -27,7 +27,6 @@ class jPosDepLearner:
         self.lowerCase = options.lowerCase
 
         self.ldims = options.lstm_dims
-        self.ldims = options.morph_dims
         self.wdims = options.wembedding_dims
         self.mdims = options.membedding_dims
         self.cdims = options.cembedding_dims
@@ -199,6 +198,7 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
+                        morph_lstms = []
                         seq_vec = []
                         morph_vec = []
                         for morph_seq in entry.idMorphs:
@@ -208,8 +208,8 @@ class jPosDepLearner:
                             morph_lstm_forward = mlstm_forward.transduce([self.mlookup[m] for m in morph_seq])[-1]
                             morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
-                            morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms) #morph based word embedding for each seqmentation
+                            morph_lstms.append(concatenate([morph_lstm_forward,morph_lstm_backward]))
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms[-1]) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
@@ -360,6 +360,7 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
+                        morph_lstms = []
                         seq_vec = []
                         morph_vec = []
                         for morph_seq in entry.idMorphs:
@@ -369,8 +370,8 @@ class jPosDepLearner:
                             morph_lstm_forward = mlstm_forward.transduce([self.mlookup[m] for m in morph_seq])[-1]
                             morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
 
-                            morph_lstms = concatenate([morph_lstm_forward,morph_lstm_backward])
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms) #morph based word embedding for each seqmentation
+                            morph_lstms.append(concatenate([morph_lstm_forward,morph_lstm_backward]))
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms[-1]) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
