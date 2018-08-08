@@ -37,6 +37,7 @@ if __name__ == '__main__':
     parser.add_option("--disablelower", action="store_false", dest="lowerCase", default=True)
     parser.add_option("--dynet-seed", type="int", dest="seed", default=0)
     parser.add_option("--dynet-mem", type="int", dest="mem", default=0)
+    parser.add_option("--dynet-weight-decay", type="float", dest="weight_decay", default=0)
 
     (options, args) = parser.parse_args()
 

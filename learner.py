@@ -6,12 +6,13 @@ from operator import itemgetter
 import utils, time, random, decoder
 import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
-
+import pickle
 class jPosDepLearner:
     def __init__(self, vocab, pos, rels, w2i, c2i, m2i, morph_dict_array, morph_gold, options):
         self.model = ParameterCollection()
         random.seed(1)
         self.trainer = AdamTrainer(self.model)
+        self.trainer.set_sparse_updates(False)
         #if options.learning_rate is not None:
         #    self.trainer = AdamTrainer(self.model, alpha=options.learning_rate)
         #    print("Adam initial learning rate:", options.learning_rate)
@@ -49,6 +50,8 @@ class jPosDepLearner:
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
         self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
+
+        self.epsilon = np.finfo(float).eps * dynet.ones((1))
 
         if options.external_embedding is not None:
             ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
@@ -139,19 +142,15 @@ class jPosDepLearner:
     def pick_neg_log(self, pred, gold):
         return -dynet.log(dynet.pick(pred, gold))
 
-    def pick_cos_prox(self, pred, gold):
+    def cosine_proximity(self, pred, gold):
         def l2_normalize(x):
-            epsilon = np.finfo(float).eps * dynet.ones(pred.dim()[0])
-
-            norm = dynet.sqrt(dynet.sum_elems(dynet.square(x)))
-            sign = dynet.cdiv(x, dynet.bmax(dynet.abs(x),epsilon))
-
-            return dynet.cdiv(dynet.cmult(sign, dynet.bmax(dynet.abs(x), epsilon)), dynet.bmax(norm, epsilon[0]))
+            square_sum = dynet.sqrt(dynet.bmax(dynet.sum_elems(dynet.square(x)), self.epsilon[0]))
+            return dynet.cdiv(x, square_sum)
 
         y_true = l2_normalize(pred)
         y_pred = l2_normalize(gold)
 
-        return dynet.mean_elems(dynet.cmult(y_true, y_pred))
+        return -dynet.sum_elems(dynet.cmult(y_true, y_pred))
 
     def __getRelVector(self, sentence, i, j):
         if sentence[i].rheadfov is None:
@@ -198,24 +197,24 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
-                        morph_lstms = []
-                        seq_vec = []
-                        morph_vec = []
+                        morph_lstm_forward, morph_lstm_backward = [], []
+                        morph_enc = []
+                        morph_vec, seq_vec = [], []
                         for morph_seq in entry.idMorphs:
                             mlstm_forward = self.morph_lstm[0].initial_state()
                             mlstm_backward = self.morph_lstm[1].initial_state()
 
-                            morph_lstm_forward = mlstm_forward.transduce([self.mlookup[m] for m in morph_seq])[-1]
-                            morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
+                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seq]))
+                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)]))
 
-                            morph_lstms.append(concatenate([morph_lstm_forward,morph_lstm_backward]))
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms[-1]) #morph based word embedding for each seqmentation
+                            morph_enc.append(concatenate([morph_lstm_forward[-1][-1],morph_lstm_backward[-1][-1]]))
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
                         entry.pred_seq = np.argmax(seq_att.vec_value())
-                        entry.pred_morph = morph_vec[entry.pred_seq].vec_value()
                         entry.seq = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
+                        entry.pred_morph = morph_vec[entry.seq].vec_value()
                         entry.morph = wordvec.vec_value()
 
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
@@ -360,22 +359,22 @@ class jPosDepLearner:
                         -1]
 
                     if self.morphFlag:
-                        morph_lstms = []
-                        seq_vec = []
-                        morph_vec = []
+                        morph_lstm_forward, morph_lstm_backward = [], []
+                        morph_enc = []
+                        morph_vec, seq_vec = [], []
                         for morph_seq in entry.idMorphs:
                             mlstm_forward = self.morph_lstm[0].initial_state()
                             mlstm_backward = self.morph_lstm[1].initial_state()
 
-                            morph_lstm_forward = mlstm_forward.transduce([self.mlookup[m] for m in morph_seq])[-1]
-                            morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)])[-1]
+                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seq]))
+                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)]))
 
-                            morph_lstms.append(concatenate([morph_lstm_forward,morph_lstm_backward]))
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_lstms[-1]) #morph based word embedding for each seqmentation
+                            morph_enc.append(concatenate([morph_lstm_forward[-1][-1],morph_lstm_backward[-1][-1]]))
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each seqmentation
                             seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
                         morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
 
-                        mErrs.append(self.pick_cos_prox(morph_emb, wordvec))
+                        mErrs.append(self.cosine_proximity(morph_emb, wordvec))
                         morph_gold = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
                         seqErrs.append(self.pick_neg_log(seq_att, morph_gold))
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
