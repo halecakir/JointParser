@@ -1,10 +1,11 @@
-# coding=utf-8
+# -*- encoding: utf-8 -*-
 from collections import Counter
 import os, re, codecs
 from gensim.models import KeyedVectors
 from gensim.models.wrappers import FastText
 import pickle
 import numpy as np
+from io import open
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -27,9 +28,6 @@ class ConllEntry:
 
         self.idChars = []
         self.idMorphs = []
-
-        self.seq_vec = []
-        self.seq_emb = []
 
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
@@ -54,12 +52,10 @@ def vocab(conll_path, morph_dict_array):
 
     m2i = {}
     m2i["UNK"] = 0
-    m2i["<w>"] = 1
-    m2i["</w>"] = 2
 
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [[1, 2]]
+    root.idMorphs = [[0]]
     tokens = [root]
 
     #create morpheme indexes out of morpheme dictionary
@@ -68,8 +64,8 @@ def vocab(conll_path, morph_dict_array):
         for morphs in morph_dict_array[word]:
             all_morphs += morphs
     all_morphs = list(set(all_morphs))
-    for idx in xrange(len(all_morphs)):
-        m2i[all_morphs[idx]] = idx+3
+    for idx in range(len(all_morphs)):
+        m2i[all_morphs[idx]] = idx + 1
 
     for line in open(conll_path, 'r'):
         tok = line.strip().split('\t')
@@ -101,24 +97,15 @@ def vocab(conll_path, morph_dict_array):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                morphs_of_word = []
+                word_segmentations = []
                 if entry.norm in morph_dict_array:
-                    for idx in xrange(len(morph_dict_array[entry.norm])):
-                        morphs_of_word_instance = []
-                        morphs_of_word_instance.append(m2i["<w>"])
-                        morph_seq = morph_dict_array[entry.norm][idx]
-                        for morph in morph_seq:
-                            if morph not in m2i:
-                                morphs_of_word_instance.append(m2i["UNK"])
-                            else:
-                                morphs_of_word_instance.append(m2i[morph])
-                        morphs_of_word_instance.append(m2i["<w>"])
-                        morphs_of_word.append(morphs_of_word_instance)
+                    for segmentation in morph_dict_array[entry.norm]:
+                        word_segmentations.append([m2i[morph] if morph in m2i else m2i["UNK"] for morph in segmentation])
                 elif entry.norm in m2i:
-                    morphs_of_word = [[m2i["<w>"],m2i[entry.norm],m2i["</w>"]]]
+                    word_segmentations = [[m2i[entry.norm]]]
                 else:
-                    morphs_of_word = [[m2i["<w>"],m2i["UNK"],m2i["</w>"]]]
-                entry.idMorphs = morphs_of_word
+                    word_segmentations = [[m2i["UNK"]]]
+                entry.idMorphs = word_segmentations
 
                 tokens.append(entry)
 
@@ -130,11 +117,11 @@ def vocab(conll_path, morph_dict_array):
     return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, posCount.keys(), relCount.keys())
 
 
-def read_conll(fh, c2i, morph_dict_array, m2i):
+def read_conll(fh, c2i, m2i, morph_dict_array):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [[1, 2]]
+    root.idMorphs = [[0]]
     tokens = [root]
 
     for line in fh:
@@ -178,24 +165,15 @@ def read_conll(fh, c2i, morph_dict_array, m2i):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                morphs_of_word = []
+                word_segmentations = []
                 if entry.norm in morph_dict_array:
-                    for idx in xrange(len(morph_dict_array[entry.norm])):
-                        morphs_of_word_instance = []
-                        morphs_of_word_instance.append(m2i["<w>"])
-                        morph_seq = morph_dict_array[entry.norm][idx]
-                        for morph in morph_seq:
-                            if morph not in m2i:
-                                morphs_of_word_instance.append(m2i["UNK"])
-                            else:
-                                morphs_of_word_instance.append(m2i[morph])
-                        morphs_of_word_instance.append(m2i["<w>"])
-                        morphs_of_word.append(morphs_of_word_instance)
+                    for segmentation in morph_dict_array[entry.norm]:
+                        word_segmentations.append([m2i[morph] if morph in m2i else m2i["UNK"] for morph in segmentation])
                 elif entry.norm in m2i:
-                    morphs_of_word = [[m2i["<w>"],m2i[entry.norm],m2i["</w>"]]]
+                    word_segmentations = [[m2i[entry.norm]]]
                 else:
-                    morphs_of_word = [[m2i["<w>"],m2i["UNK"],m2i["</w>"]]]
-                entry.idMorphs = morphs_of_word
+                    word_segmentations = [[m2i["UNK"]]]
+                entry.idMorphs = word_segmentations
 
                 tokens.append(entry)
 
@@ -261,12 +239,32 @@ def load_embeddings_file(file_name, lower=False, type=None):
 
     return vectors, len(vectors["UNK"])
 
-def get_morph_dict(seqment_file, lowerCase):
-    if seqment_file == "N/A":
+def save_embeddings(file_name, vectors, type=None):
+    if type == None:
+        file_type = file_name.rsplit(".",1)[1] if '.' in file_name else None
+        if file_type == "p":
+            type = "pickle"
+        elif file_type == "bin":
+            type = "word2vec"
+        else:
+            type = "word2vec"
+
+    if "UNK" not in vectors:
+        unk = np.mean([vectors[word] for word in vectors.keys()], axis=0)
+        vectors["UNK"] = unk
+
+    if type == "word2vec":
+        pass
+    elif type == "pickle":
+        with open(file_name,'wb') as fp:
+            pickle.dump(vectors, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+def get_morph_dict(segment_file, lowerCase=False):
+    if segment_file == "N/A":
         return {}
 
     morph_dict = {}
-    with open(seqment_file) as text:
+    with open(segment_file,encoding="utf8") as text:
         for line in text:
             line = line.strip()
             index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
@@ -277,24 +275,24 @@ def get_morph_dict(seqment_file, lowerCase):
                 morph_dict[index] = [data]
     return morph_dict
 
-def get_morph_dict_array(seqment_file, lowerCase):
-    if seqment_file == "N/A":
+def get_morph_dict_array(segment_file, lowerCase=False):
+    if segment_file == "N/A":
         return {}
 
     morph_dict = {}
-    with open(seqment_file) as text:
+    with open(segment_file,encoding="utf8") as text:
         for line in text:
             line = line.strip()
             index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
             datas = line.split(":")[1].split("+")
-            word_seq = []
+            word_seg = []
             for data in datas:
                 if data != "###" and len(data) != 0:
                     if '-' in data:
-                        word_seq.append(data.split("-"))
+                        word_seg.append(data.split("-"))
                     else:
-                        word_seq.append([data])
-            morph_dict[index] = word_seq
+                        word_seg.append([data])
+            morph_dict[index] = word_seg
     return morph_dict
 
 def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
@@ -302,12 +300,12 @@ def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
 
     for index in unsupervised_morph_dict.keys():
         if index in gold_morph_dict:
-            gold_seq = gold_morph_dict[index]
+            gold_seg = gold_morph_dict[index]
             idx = 0
-            for un_seq in unsupervised_morph_dict[index]:
-                if len(un_seq) == len(gold_seq):
+            for un_seg in unsupervised_morph_dict[index]:
+                if len(un_seg) == len(gold_seg):
                     FLAG = True
-                    for un, gold in zip(un_seq, gold_seq):
+                    for un, gold in zip(un_seg, gold_seg):
                         if un != gold:
                             FLAG = False
                     if FLAG:

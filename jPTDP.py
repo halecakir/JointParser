@@ -1,4 +1,4 @@
-# coding=utf-8
+# -*- encoding: utf-8 -*-
 from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
 
@@ -7,8 +7,8 @@ if __name__ == '__main__':
     parser.add_option("--train", dest="conll_train", help="Path to annotated CONLL train file", metavar="FILE", default="N/A")
     parser.add_option("--dev", dest="conll_dev", help="Path to annotated CONLL dev file", metavar="FILE", default="N/A")
     parser.add_option("--test", dest="conll_test", help="Path to CONLL test file", metavar="FILE", default="N/A")
-    parser.add_option("--goldmorph", dest="gold_morph_path", help="Path to Morph seqmentation file", metavar="FILE", default="N/A")
-    parser.add_option("--unmorph", dest="un_morph_path", help="Path to Morph seqmentation file", metavar="FILE", default="N/A")
+    parser.add_option("--goldmorph", dest="gold_morph_path", help="Path to Morph segmentation file", metavar="FILE", default="N/A")
+    parser.add_option("--unmorph", dest="un_morph_path", help="Path to Morph segmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
     parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default=None)
@@ -87,10 +87,11 @@ if __name__ == '__main__':
                 devPredSents = parser.Predict(options.conll_dev)
 
                 count = 0
+                memb_count = 0
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
-                seqCount = 0
+                segCount = 0
                 membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
@@ -107,16 +108,18 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if entry.seq == entry.pred_seq:
-                            seqCount += 1
-                        membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
+                        if entry.seg == entry.pred_seg:
+                            segCount += 1
+                        if entry.morph is not None:
+                            memb_count += 1
+                            membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
                         count += 1
 
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
-                print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
-                print "MEMB accuracy:\t%.2f" % (float(membAcc) / count)
+                print "SEG accuracy:\t%.2f" % (float(segCount) * 100 / count)
+                print "MEMB accuracy:\t%.2f" % (float(membAcc) / memb_count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
 
                 score = float(poslasCount) * 100 / count
@@ -151,6 +154,7 @@ if __name__ == '__main__':
                 else:
                     parser.trainer.restart(learning_rate=0.00025)
 
+            parser.Train_Morph()
             parser.Train(options.conll_train)
 
             if options.conll_dev == "N/A":
@@ -160,10 +164,11 @@ if __name__ == '__main__':
                 devPredSents = parser.Predict(options.conll_dev)
 
                 count = 0
+                memb_count = 0
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
-                seqCount = 0
+                segCount = 0
                 membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
@@ -180,16 +185,18 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if entry.seq == entry.pred_seq:
-                            seqCount += 1
-                        membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
+                        if entry.seg == entry.pred_seg:
+                            segCount += 1
+                        if entry.morph is not None:
+                            memb_count += 1
+                            membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
                         count += 1
                         
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
-                print "SEQ accuracy:\t%.2f" % (float(seqCount) * 100 / count)
-                print "MEMB accuracy:\t%.2f" % (float(membAcc) / count)
+                print "SEG accuracy:\t%.2f" % (float(segCount) * 100 / count)
+                print "MEMB accuracy:\t%.2f" % (float(membAcc) / memb_count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
                 
                 score = float(poslasCount) * 100 / count

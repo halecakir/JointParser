@@ -50,38 +50,37 @@ class jPosDepLearner:
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
         self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
-
-        self.epsilon = np.finfo(float).eps * dynet.ones((1))
+        self.ext_embeddings = None
 
         if options.external_embedding is not None:
             ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
+            self.ext_embeddings = ext_embeddings
             assert (ext_emb_dim == self.wdims)
             print("Initializing word embeddings by pre-trained vectors")
             count = 0
             for word in self.vocab:
-                _word = unicode(word.lower(), "utf-8") if self.lowerCase else unicode(word, "utf-8")
-                if _word in ext_embeddings:
+                if word.lower() in ext_embeddings:
                     count += 1
-                    self.wlookup.init_row(self.vocab[word], ext_embeddings[_word])
+                    self.wlookup.init_row(self.vocab[word], ext_embeddings[word.lower()])
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
 
 
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model)]
+        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 +self.wdims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model)]
             self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
-            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.wdims + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model)]
         else:
-            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model),
-                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.wdims, self.ldims, self.model)]
+            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model),
+                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model)]
 
         self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
 
@@ -110,6 +109,8 @@ class jPosDepLearner:
             self.morph_attW = self.model.add_parameters((self.wdims, self.wdims))
             self.morph_attV = self.model.add_parameters((1, self.wdims))
 
+            self.morph_rnn = [RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model)),
+                             RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model))]
 
         self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
 
@@ -144,7 +145,7 @@ class jPosDepLearner:
 
     def cosine_proximity(self, pred, gold):
         def l2_normalize(x):
-            square_sum = dynet.sqrt(dynet.bmax(dynet.sum_elems(dynet.square(x)), self.epsilon[0]))
+            square_sum = dynet.sqrt(dynet.bmax(dynet.sum_elems(dynet.square(x)), np.finfo(float).eps * dynet.ones((1))[0]))
             return dynet.cdiv(x, square_sum)
 
         y_true = l2_normalize(pred)
@@ -167,16 +168,16 @@ class jPosDepLearner:
         else:
             return _outputVector
 
-    def __getSeqmentationVector(self, morph_vec, seq_vec): #list of morph vectors and  seqmentation attetion vectors
-        seq_att = dynet.softmax(concatenate(seq_vec))
-        seq_att_reshape = dynet.reshape(seq_att, (seq_att.dim()[0][0], 1))
+    def __getSegmentationVector(self, morph_vec, seg_vec): #list of morph vectors and  segmentation attetion vectors
+        seg_att = dynet.softmax(concatenate(seg_vec))
+        seg_att_reshape = dynet.reshape(seg_att, (seg_att.dim()[0][0], 1))
 
-        seq_morph = concatenate(morph_vec)
-        seq_morph_reshape = dynet.reshape(seq_morph, (int(seq_morph.dim()[0][0]/self.wdims), self.wdims))
+        seg_morph = concatenate(morph_vec)
+        seg_morph_reshape = dynet.reshape(seg_morph, (int(seg_morph.dim()[0][0]/self.wdims), self.wdims))
 
-        morph_emb = dynet.sum_dim(dynet.cmult(seq_att_reshape,seq_morph_reshape), [0]) #weighted sum of morph vectors
+        morph_emb = dynet.sum_dim(dynet.cmult(seg_att_reshape,seg_morph_reshape), [0]) #weighted sum of morph vectors
 
-        return morph_emb, seq_att
+        return morph_emb, seg_att
 
     def Save(self, filename):
         self.model.save(filename)
@@ -184,9 +185,34 @@ class jPosDepLearner:
     def Load(self, filename):
         self.model.populate(filename)
 
+    def morph2word(self, morph_dict):
+        word_emb = {}
+        for word in morph_dict.keys():
+            idMorphs = [self.m2i[morph] if morph in self.m2i else self.m2i["UNK"] for morph in morph_dict[word]]
+            mlstm_forward = self.morph_lstm[0].initial_state()
+            mlstm_backward = self.morph_lstm[1].initial_state()
+
+            morph_lstm_forward = mlstm_forward.transduce([self.mlookup[m] for m in idMorphs])
+            morph_lstm_backward = mlstm_backward.transduce([self.mlookup[m] for m in reversed(idMorphs)])
+
+            morph_enc = concatenate([morph_lstm_forward[-1],morph_lstm_backward[-1]])
+            morph_vec = self.morph_hidLayer.expr() * morph_enc
+
+            if self.m2i["UNK"] not in idMorphs:
+                word_emb[word] = morph_vec.vec_value()
+        renew_cg()
+        return word_emb
+
+    def morph(self):
+        morph_dict = {}
+        for morph in self.m2i.keys():
+            morph_dict[morph] = self.mlookup[self.m2i[morph]].vec_value()
+        renew_cg()
+        return morph_dict
+
     def Predict(self, conll_path):
         with open(conll_path, 'r') as conllFP:
-            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.morph_dict_array, self.m2i)):
+            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.morph_dict_array)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 for entry in conll_sentence:
@@ -199,25 +225,35 @@ class jPosDepLearner:
                     if self.morphFlag:
                         morph_lstm_forward, morph_lstm_backward = [], []
                         morph_enc = []
-                        morph_vec, seq_vec = [], []
-                        for morph_seq in entry.idMorphs:
+                        morph_vec, seg_vec = [], []
+                        for morph_seg in entry.idMorphs:
                             mlstm_forward = self.morph_lstm[0].initial_state()
                             mlstm_backward = self.morph_lstm[1].initial_state()
 
-                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seq]))
-                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)]))
+                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seg]))
+                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seg)]))
 
                             morph_enc.append(concatenate([morph_lstm_forward[-1][-1],morph_lstm_backward[-1][-1]]))
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each seqmentation
-                            seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
-                        morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each segmentation
+                            seg_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of segmentation
+                        morph_emb, seg_att = self.__getSegmentationVector(morph_vec, seg_vec) #weighted sum of segmentation embeddings and segmentation prediction
 
-                        entry.pred_seq = np.argmax(seq_att.vec_value())
-                        entry.seq = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
-                        entry.pred_morph = morph_vec[entry.seq].vec_value()
-                        entry.morph = wordvec.vec_value()
+                        entry.pred_seg = np.argmax(seg_att.vec_value())
+                        entry.seg = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
 
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
+                        entry.pred_morph = morph_vec[entry.seg].vec_value()
+                        if self.ext_embeddings is None:
+                            entry.morph = self.wlookup[int(self.vocab.get(entry.norm, 0))].vec_value()
+                        elif entry.norm in self.ext_embeddings:
+                            entry.morph = self.ext_embeddings[entry.norm]
+                        else:
+                            entry.morph = None
+
+                        last_state_morph = self.morph_rnn[0].predict_sequence([self.mlookup[m] for m in entry.idMorphs[entry.pred_seg]])[-1]
+                        rev_last_state_morph = self.morph_rnn[1].predict_sequence([self.mlookup[m] for m in entry.idMorphs[entry.pred_seg]])[
+                            -1]
+
+                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
@@ -320,6 +356,43 @@ class jPosDepLearner:
                 if not dump:
                     yield sentence
 
+    def Train_Morph(self):
+        start = time.time()
+        for iWord, word in enumerate(list(self.morph_dict_array.keys())):
+            if iWord % 2000 == 0 and iWord != 0:
+                print "Processing word number: %d" % iWord, ", Time: %.2f" % (time.time() - start)
+                start = time.time()
+
+            idMorphs = [[self.m2i[morph] for morph in morph_seg] for morph_seg in self.morph_dict_array[word]]
+            morph_lstm_forward, morph_lstm_backward = [], []
+            morph_enc = []
+            morph_vec, seg_vec = [], []
+            for morph_seg in idMorphs:
+                mlstm_forward = self.morph_lstm[0].initial_state()
+                mlstm_backward = self.morph_lstm[1].initial_state()
+
+                morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seg]))
+                morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seg)]))
+
+                morph_enc.append(concatenate([morph_lstm_forward[-1][-1],morph_lstm_backward[-1][-1]]))
+                morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each segmentation
+                seg_vec.append(self.morph_attV.expr() * dynet.tanh(self.morph_attW.expr() * morph_vec[-1])) #attention vector of segmentation
+            morph_emb, seg_att = self.__getSegmentationVector(morph_vec, seg_vec) #weighted sum of segmentation embeddings and segmentation prediction
+
+            if self.ext_embeddings is None:
+                vec_gold = self.wlookup[int(self.vocab.get(word, 0))]
+            elif word in self.ext_embeddings:
+                vec_gold = dynet.vecInput(200)
+                vec_gold.set(self.ext_embeddings[word])
+            else:
+                vec_gold = None
+
+            if vec_gold != None:
+                mErrs = self.cosine_proximity(morph_emb, vec_gold)
+                mErrs.backward()
+                self.trainer.update()
+            renew_cg()
+
     def Train(self, conll_path):
         eloss = 0.0
         mloss = 0.0
@@ -328,14 +401,14 @@ class jPosDepLearner:
         start = time.time()
 
         with open(conll_path, 'r') as conllFP:
-            shuffledData = list(read_conll(conllFP, self.c2i, self.morph_dict_array, self.m2i))
+            shuffledData = list(read_conll(conllFP, self.c2i, self.m2i, self.morph_dict_array))
             random.shuffle(shuffledData)
 
             errs = []
             lerrs = []
             posErrs = []
             mErrs = []
-            seqErrs = []
+            segErrs = []
 
             for iSentence, sentence in enumerate(shuffledData):
                 if iSentence % 500 == 0 and iSentence != 0:
@@ -361,23 +434,37 @@ class jPosDepLearner:
                     if self.morphFlag:
                         morph_lstm_forward, morph_lstm_backward = [], []
                         morph_enc = []
-                        morph_vec, seq_vec = [], []
-                        for morph_seq in entry.idMorphs:
+                        morph_vec, seg_vec = [], []
+                        for morph_seg in entry.idMorphs:
                             mlstm_forward = self.morph_lstm[0].initial_state()
                             mlstm_backward = self.morph_lstm[1].initial_state()
 
-                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seq]))
-                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seq)]))
+                            morph_lstm_forward.append(mlstm_forward.transduce([self.mlookup[m] for m in morph_seg]))
+                            morph_lstm_backward.append(mlstm_backward.transduce([self.mlookup[m] for m in reversed(morph_seg)]))
 
                             morph_enc.append(concatenate([morph_lstm_forward[-1][-1],morph_lstm_backward[-1][-1]]))
-                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each seqmentation
-                            seq_vec.append(self.morph_attV.expr() * self.activation(self.morph_attW.expr() * morph_vec[-1])) #attention vector of seqmentation
-                        morph_emb, seq_att = self.__getSeqmentationVector(morph_vec, seq_vec) #weighted sum of seqmentation embeddings and seqmentation prediction
+                            morph_vec.append(self.morph_hidLayer.expr() * morph_enc[-1]) #morph based word embedding for each segmentation
+                            seg_vec.append(self.morph_attV.expr() * dynet.tanh(self.morph_attW.expr() * morph_vec[-1])) #attention vector of segmentation
+                        morph_emb, seg_att = self.__getSegmentationVector(morph_vec, seg_vec) #weighted sum of segmentation embeddings and segmentation prediction
 
-                        mErrs.append(self.cosine_proximity(morph_emb, wordvec))
                         morph_gold = self.morph_gold[entry.norm] if entry.norm in self.morph_gold else 0
-                        seqErrs.append(self.pick_neg_log(seq_att, morph_gold))
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, morph_emb]))
+                        last_state_morph = self.morph_rnn[0].predict_sequence([self.mlookup[m] for m in entry.idMorphs[morph_gold]])[-1]
+                        rev_last_state_morph = self.morph_rnn[1].predict_sequence([self.mlookup[m] for m in entry.idMorphs[morph_gold]])[
+                            -1]
+
+                        if self.ext_embeddings is None:
+                            vec_gold = self.wlookup[int(self.vocab.get(entry.norm, 0))]
+                        elif entry.norm in self.ext_embeddings:
+                            vec_gold = dynet.vecInput(200)
+                            vec_gold.set(self.ext_embeddings[entry.norm])
+                        else:
+                            vec_gold = None
+
+                        if vec_gold is not None:
+                            mErrs.append(self.cosine_proximity(morph_emb, vec_gold))
+                        if entry.norm in self.morph_gold:
+                            segErrs.append(self.pick_neg_log(seg_att, self.morph_gold[entry.norm]))
+                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
                     else:
                         entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
@@ -471,8 +558,8 @@ class jPosDepLearner:
                 etotal += len(conll_sentence)
 
                 if iSentence % 1 == 0:
-                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs + mErrs + seqErrs))
+                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(mErrs) > 0 or len(segErrs) > 0:
+                        eerrs = (esum(errs + lerrs + posErrs + mErrs + segErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
@@ -480,7 +567,7 @@ class jPosDepLearner:
                         lerrs = []
                         posErrs = []
                         mErrs = []
-                        seqErrs = []
+                        segErrs = []
 
                     renew_cg()
 
