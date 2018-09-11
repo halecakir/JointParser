@@ -8,7 +8,7 @@ import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 import pickle
 class jPosDepLearner:
-    def __init__(self, vocab, pos, rels, w2i, c2i, m2i, morph_dict_array, morph_gold, options):
+    def __init__(self, vocab, pos, rels, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, options):
         self.model = ParameterCollection()
         random.seed(1)
         self.trainer = AdamTrainer(self.model)
@@ -25,11 +25,13 @@ class jPosDepLearner:
         self.costaugFlag = options.costaugFlag
         self.bibiFlag = options.bibiFlag
         self.morphFlag = options.morphFlag
+        self.morphTagFlag = options.morphTagFlag
         self.lowerCase = options.lowerCase
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
         self.mdims = options.membedding_dims
+        self.tdims = options.tembedding_dims
         self.cdims = options.cembedding_dims
         self.layers = options.lstm_layers
         self.wordsCount = vocab
@@ -38,6 +40,7 @@ class jPosDepLearner:
         self.id2pos = {ind: word for ind, word in enumerate(pos)}
         self.c2i = c2i
         self.m2i = m2i
+        self.t2i = t2i
         self.morph_dict_array = morph_dict_array
         self.morph_gold = morph_gold
         self.rels = {word: ind for ind, word in enumerate(rels)}
@@ -49,6 +52,7 @@ class jPosDepLearner:
         self.wlookup = self.model.add_lookup_parameters((len(vocab) + 3, self.wdims))
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
         self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
+        self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
         self.ext_embeddings = None
 
@@ -64,23 +68,25 @@ class jPosDepLearner:
                     self.wlookup.init_row(self.vocab[word], ext_embeddings[word.lower()])
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
 
+        self.morph_dims = 2*self.mdims if self.morphFlag else 0
+        self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
 
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model)]
+        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
             self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
-            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims*2 + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
         else:
-            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model),
-                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims*2, self.ldims, self.model)]
+            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
 
         self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
 
@@ -111,6 +117,11 @@ class jPosDepLearner:
 
             self.morph_rnn = [RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model)),
                              RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model))]
+
+        if self.morphTagFlag:
+            # All weights for morpheme taging will be here. (CURSOR)
+            self.mtag_rnn = [RNNSequencePredictor(LSTMBuilder(1, self.tdims, self.tdims, self.model)),
+                             RNNSequencePredictor(LSTMBuilder(1, self.tdims, self.tdims, self.model))]
 
         self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
 
@@ -212,7 +223,7 @@ class jPosDepLearner:
 
     def Predict(self, conll_path):
         with open(conll_path, 'r') as conllFP:
-            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.morph_dict_array)):
+            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict_array)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 for entry in conll_sentence:
@@ -221,6 +232,8 @@ class jPosDepLearner:
                     last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
+
+                    entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
                     if self.morphFlag:
                         morph_lstm_forward, morph_lstm_backward = [], []
@@ -253,9 +266,17 @@ class jPosDepLearner:
                         rev_last_state_morph = self.morph_rnn[1].predict_sequence([self.mlookup[m] for m in entry.idMorphs[entry.pred_seg]])[
                             -1]
 
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
-                    else:
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
+                        entry.vec = concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph]))
+
+                    if self.morphTagFlag:
+                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
+                        morph_tags = entry.idMorphTags
+
+                        last_state_mtag = self.mtag_rnn[0].predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn[1].predict_sequence([self.tlookup[t] for t in morph_tags])[
+                            -1]
+
+                        entry.vec = concatenate(filter(None, [entry.vec, last_state_mtag, rev_last_state_mtag]))
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -401,13 +422,14 @@ class jPosDepLearner:
         start = time.time()
 
         with open(conll_path, 'r') as conllFP:
-            shuffledData = list(read_conll(conllFP, self.c2i, self.m2i, self.morph_dict_array))
+            shuffledData = list(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict_array))
             random.shuffle(shuffledData)
 
             errs = []
             lerrs = []
             posErrs = []
             mErrs = []
+            tErrs = []
             segErrs = []
 
             for iSentence, sentence in enumerate(shuffledData):
@@ -430,6 +452,8 @@ class jPosDepLearner:
                     last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
+
+                    entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
 
                     if self.morphFlag:
                         morph_lstm_forward, morph_lstm_backward = [], []
@@ -464,9 +488,18 @@ class jPosDepLearner:
                             mErrs.append(self.cosine_proximity(morph_emb, vec_gold))
                         if entry.norm in self.morph_gold:
                             segErrs.append(self.pick_neg_log(seg_att, self.morph_gold[entry.norm]))
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
-                    else:
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
+                        entry.vec = concatenate(filter(None, [entry.vec, last_state_morph, rev_last_state_morph]))
+
+                    if self.morphTagFlag:
+                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
+                        morph_tags = entry.idMorphTags
+                        #tErr.append(LOSS HERE)
+
+                        last_state_mtag = self.mtag_rnn[0].predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn[1].predict_sequence([self.tlookup[t] for t in morph_tags])[
+                            -1]
+
+                        entry.vec = concatenate(filter(None, [entry.vec, last_state_mtag, rev_last_state_mtag]))
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None

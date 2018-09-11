@@ -53,6 +53,10 @@ def vocab(conll_path, morph_dict_array):
     m2i = {}
     m2i["UNK"] = 0
 
+    t2i = {}
+    t2i["UNK"] = 0
+    # Create morpheme tag indexes here. (CURSOR)
+
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
     root.idMorphs = [[0]]
@@ -114,10 +118,10 @@ def vocab(conll_path, morph_dict_array):
         posCount.update([node.pos for node in tokens if isinstance(node, ConllEntry)])
         relCount.update([node.relation for node in tokens if isinstance(node, ConllEntry)])
 
-    return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, posCount.keys(), relCount.keys())
+    return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, t2i, posCount.keys(), relCount.keys())
 
 
-def read_conll(fh, c2i, m2i, morph_dict_array):
+def read_conll(fh, c2i, m2i, t2i, morph_dict_array):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
@@ -174,6 +178,9 @@ def read_conll(fh, c2i, m2i, morph_dict_array):
                 else:
                     word_segmentations = [[m2i["UNK"]]]
                 entry.idMorphs = word_segmentations
+
+                #Create morpheme tag gold data here! (CURSOR)
+                entry.idMorphTags = [0]
 
                 tokens.append(entry)
 
