@@ -28,6 +28,7 @@ class ConllEntry:
 
         self.idChars = []
         self.idMorphs = []
+        self.idMorphTags = []
 
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
@@ -126,6 +127,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict_array):
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
     root.idMorphs = [[0]]
+    root.idMorphTags = [0]
     tokens = [root]
 
     for line in fh:

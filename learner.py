@@ -591,8 +591,8 @@ class jPosDepLearner:
                 etotal += len(conll_sentence)
 
                 if iSentence % 1 == 0:
-                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(mErrs) > 0 or len(segErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs + mErrs + segErrs))
+                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(mErrs) > 0 or len(tErrs) > 0 or len(segErrs) > 0:
+                        eerrs = (esum(errs + lerrs + posErrs + mErrs + tErrs + segErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
@@ -600,6 +600,7 @@ class jPosDepLearner:
                         lerrs = []
                         posErrs = []
                         mErrs = []
+                        tErrs = []
                         segErrs = []
 
                     renew_cg()
