@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
+import numpy as np
 
 if __name__ == '__main__':
     parser = OptionParser()
@@ -8,7 +9,6 @@ if __name__ == '__main__':
     parser.add_option("--dev", dest="conll_dev", help="Path to annotated CONLL dev file", metavar="FILE", default="N/A")
     parser.add_option("--test", dest="conll_test", help="Path to CONLL test file", metavar="FILE", default="N/A")
     parser.add_option("--goldmorph", dest="gold_morph_path", help="Path to Morph segmentation file", metavar="FILE", default="N/A")
-    parser.add_option("--unmorph", dest="un_morph_path", help="Path to Morph segmentation file", metavar="FILE", default="N/A")
     parser.add_option("--output", dest="conll_test_output", help="File name for predicted output", metavar="FILE", default="N/A")
     parser.add_option("--prevectors", dest="external_embedding", help="Pre-trained vector embeddings", metavar="FILE")
     parser.add_option("--prevectype", dest="external_embedding_type", help="Pre-trained vector embeddings type", default=None)
@@ -47,10 +47,10 @@ if __name__ == '__main__':
 
     if options.predictFlag:
         with open(options.params, 'r') as paramsfp:
-            words, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, pos, rels, stored_opt = pickle.load(paramsfp)
+            words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
         stored_opt.external_embedding = None
         print 'Loading pre-trained model'
-        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, stored_opt)
+        parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, stored_opt)
         parser.Load(options.model)
 
         testoutpath = os.path.join(options.output, options.conll_test_output)
@@ -80,20 +80,23 @@ if __name__ == '__main__':
 
             print 'Found a previous saved model => Loading this model'
             with open(os.path.join(options.output, options.params), 'r') as paramsfp:
-                words, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, pos, rels, stored_opt = pickle.load(paramsfp)
+                words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
             stored_opt.external_embedding = None
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, stored_opt)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, stored_opt)
             parser.Load(os.path.join(options.output, os.path.basename(options.model)))
             parser.trainer.restart()
             if options.conll_dev != "N/A":
+                utils.save_embeddings("word_emb.p",parser.morph2word(utils.get_morph_dict("turkish_new_data_gold_segmented.txt",True)))
+                utils.save_embeddings("morph_emb.p",parser.morph())
                 devPredSents = parser.Predict(options.conll_dev)
 
                 count = 0
                 memb_count = 0
+                seg_count = 0
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
-                segCount = 0
+                segAcc = 0
                 membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
@@ -110,8 +113,9 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if entry.seg == entry.pred_seg:
-                            segCount += 1
+                        if len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                            segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
+                            seg_count += 1
                         if entry.morph is not None:
                             memb_count += 1
                             membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
@@ -120,7 +124,7 @@ if __name__ == '__main__':
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
-                print "SEG accuracy:\t%.2f" % (float(segCount) * 100 / count)
+                print "SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count)
                 print "MEMB accuracy:\t%.2f" % (float(membAcc) / memb_count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
 
@@ -134,16 +138,19 @@ if __name__ == '__main__':
         else:
             print 'Extracting vocabulary'
             morph_dict = utils.get_morph_dict(options.gold_morph_path, options.lowerCase)
-            morph_dict_array = utils.get_morph_dict_array(options.un_morph_path, options.lowerCase)
-            morph_gold = utils.get_morph_gold(morph_dict, morph_dict_array)
-            words, w2i, c2i, m2i, t2i, pos, rels = utils.vocab(options.conll_train,morph_dict_array)
+            morph_dict_2 = utils.get_morph_dict("special/90K_gold.tr", options.lowerCase)
+            words, w2i, c2i, m2i, t2i, pos, rels = utils.vocab(options.conll_train,morph_dict_2)
 
             with open(os.path.join(options.output, options.params), 'w') as paramsfp:
-                pickle.dump((words, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, pos, rels, options), paramsfp)
+                pickle.dump((words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, options), paramsfp)
 
             #print 'Initializing joint model'
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict_array, morph_gold, options)
+            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options)
 
+
+        for epoch in xrange(5):
+            print '\n-----------------\nStarting Morph2Vec epoch', epoch + 1
+            parser.Train_Morph(morph_dict_2)
 
         for epoch in xrange(options.epochs):
             print '\n-----------------\nStarting epoch', epoch + 1
@@ -156,26 +163,28 @@ if __name__ == '__main__':
                 else:
                     parser.trainer.restart(learning_rate=0.00025)
 
-            parser.Train_Morph()
             parser.Train(options.conll_train)
 
             if options.conll_dev == "N/A":
                 parser.Save(os.path.join(options.output, os.path.basename(options.model)))
 
             else:
+                utils.save_embeddings("word_emb.p",parser.morph2word(utils.get_morph_dict("turkish_new_data_gold_segmented.txt",True)))
+                utils.save_embeddings("morph_emb.p",parser.morph())
                 devPredSents = parser.Predict(options.conll_dev)
 
                 count = 0
                 memb_count = 0
+                seg_count = 0
                 lasCount = 0
                 uasCount = 0
                 posCount = 0
-                segCount = 0
+                segAcc = 0
                 membAcc = 0
                 poslasCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    
+
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
@@ -187,8 +196,9 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if entry.seg == entry.pred_seg:
-                            segCount += 1
+                        if len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                            segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
+                            seg_count += 1
                         if entry.morph is not None:
                             memb_count += 1
                             membAcc += utils.percentage_arccosine_similarity(entry.morph, entry.pred_morph)
@@ -197,7 +207,7 @@ if __name__ == '__main__':
                 print "---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count)
                 print "UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count)
                 print "POS accuracy:\t%.2f" % (float(posCount) * 100 / count)
-                print "SEG accuracy:\t%.2f" % (float(segCount) * 100 / count)
+                print "SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count)
                 print "MEMB accuracy:\t%.2f" % (float(membAcc) / memb_count)
                 print "POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count)
                 

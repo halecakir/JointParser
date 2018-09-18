@@ -5,6 +5,7 @@ from gensim.models import KeyedVectors
 from gensim.models.wrappers import FastText
 import pickle
 import numpy as np
+import random
 from io import open
 
 class ConllEntry:
@@ -37,7 +38,7 @@ class ConllEntry:
         return '\t'.join(['_' if v is None else v for v in values])
 
 
-def vocab(conll_path, morph_dict_array):
+def vocab(conll_path, morph_dict):
     wordsCount = Counter()
     posCount = Counter()
     relCount = Counter()
@@ -60,14 +61,14 @@ def vocab(conll_path, morph_dict_array):
 
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [[0]]
+    root.idMorphs = [0]
+    root.idMorphTags = [0]
     tokens = [root]
 
     #create morpheme indexes out of morpheme dictionary
     all_morphs = []
-    for word in morph_dict_array.keys():
-        for morphs in morph_dict_array[word]:
-            all_morphs += morphs
+    for word in morph_dict.keys():
+        all_morphs += morph_dict[word]
     all_morphs = list(set(all_morphs))
     for idx in range(len(all_morphs)):
         m2i[all_morphs[idx]] = idx + 1
@@ -102,15 +103,10 @@ def vocab(conll_path, morph_dict_array):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                word_segmentations = []
-                if entry.norm in morph_dict_array:
-                    for segmentation in morph_dict_array[entry.norm]:
-                        word_segmentations.append([m2i[morph] if morph in m2i else m2i["UNK"] for morph in segmentation])
-                elif entry.norm in m2i:
-                    word_segmentations = [[m2i[entry.norm]]]
-                else:
-                    word_segmentations = [[m2i["UNK"]]]
-                entry.idMorphs = word_segmentations
+                entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
+
+                #Create morpheme tag gold data here! (CURSOR)
+                entry.idMorphTags = [0]
 
                 tokens.append(entry)
 
@@ -122,11 +118,11 @@ def vocab(conll_path, morph_dict_array):
     return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, t2i, posCount.keys(), relCount.keys())
 
 
-def read_conll(fh, c2i, m2i, t2i, morph_dict_array):
+def read_conll(fh, c2i, m2i, t2i, morph_dict):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [[0]]
+    root.idMorphs = [0]
     root.idMorphTags = [0]
     tokens = [root]
 
@@ -171,15 +167,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict_array):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                word_segmentations = []
-                if entry.norm in morph_dict_array:
-                    for segmentation in morph_dict_array[entry.norm]:
-                        word_segmentations.append([m2i[morph] if morph in m2i else m2i["UNK"] for morph in segmentation])
-                elif entry.norm in m2i:
-                    word_segmentations = [[m2i[entry.norm]]]
-                else:
-                    word_segmentations = [[m2i["UNK"]]]
-                entry.idMorphs = word_segmentations
+                entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
 
                 #Create morpheme tag gold data here! (CURSOR)
                 entry.idMorphTags = [0]
@@ -284,45 +272,35 @@ def get_morph_dict(segment_file, lowerCase=False):
                 morph_dict[index] = [data]
     return morph_dict
 
-def get_morph_dict_array(segment_file, lowerCase=False):
-    if segment_file == "N/A":
-        return {}
+def generate_morphs(word, split_points):
+    morphs = []
+    morph = ""
+    for i,split in enumerate(split_points):
+        morph += word[i]
+        if split > random.random():
+            morphs.append(morph)
+            morph = ""
+    if len(morph) > 0:
+        morphs.append(morph)
+    return morphs
 
-    morph_dict = {}
-    with open(segment_file,encoding="utf8") as text:
-        for line in text:
-            line = line.strip()
-            index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
-            datas = line.split(":")[1].split("+")
-            word_seg = []
-            for data in datas:
-                if data != "###" and len(data) != 0:
-                    if '-' in data:
-                        word_seg.append(data.split("-"))
-                    else:
-                        word_seg.append([data])
-            morph_dict[index] = word_seg
-    return morph_dict
+def get_morph_gold(word, morph_dict):
+    split_points = []
+    if word in morph_dict:
+        for morph in morph_dict[word]:
+            for i in range(len(morph)):
+                if i == len(morph)-1:
+                    split_points.append(True)
+                else:
+                    split_points.append(False)
+    else:
+        for i in range(len(word)):
+            if i == len(word)-1:
+                split_points.append(True)
+            else:
+                split_points.append(False)
 
-def get_morph_gold(gold_morph_dict, unsupervised_morph_dict):
-    gold_data = {}
-
-    for index in unsupervised_morph_dict.keys():
-        if index in gold_morph_dict:
-            gold_seg = gold_morph_dict[index]
-            idx = 0
-            for un_seg in unsupervised_morph_dict[index]:
-                if len(un_seg) == len(gold_seg):
-                    FLAG = True
-                    for un, gold in zip(un_seg, gold_seg):
-                        if un != gold:
-                            FLAG = False
-                    if FLAG:
-                        gold_data[index] = idx
-                idx += 1
-            if index not in gold_data:
-                gold_data[index] = 0
-    return gold_data
+    return split_points
 
 def percentage_arccosine_similarity(y_true, y_pred):
     def l2_normalize(x):
@@ -335,3 +313,12 @@ def percentage_arccosine_similarity(y_true, y_pred):
     y_true = l2_normalize(y_true)
     y_pred = l2_normalize(y_pred)
     return (1 - np.arccos(np.mean(y_true * y_pred) / factor)/np.pi) * 100
+
+def lower(text):
+   text = text.replace("Ü", "ü")
+   text = text.replace("Ğ", "ğ")
+   text = text.replace("İ", "i")
+   text = text.replace("Ş", "ş")
+   text = text.replace("Ç", "ç")
+   text = text.replace("Ö", "ö")
+   return text.lower()
