@@ -11,8 +11,8 @@ This github project currently supports jPTDP v2.0, while v1.0 can be found in th
 
 jPTDP requires the following software packages:
 
-* `Python 2.7`
-* [`DyNet` v2.0](http://dynet.readthedocs.io/en/latest/python.html): `pip install dynet`
+* `Python 3.6`
+* [`DyNet` v2.0](http://dynet.readthedocs.io/en/latest/python.html): `pip install dynet==2.0.3`
 
 Once you installed the prerequisite packages above, you can clone or download (and then unzip) jPTDP. Next sections show instructions to train a new joint model for POS tagging and dependency parsing, and then to utilize a pre-trained model.
 
@@ -23,7 +23,7 @@ Suppose that `SOURCE_DIR` is simply used to denote the source code directory. Si
 
 __To train a joint model for POS tagging and dependency parsing, you perform:__
 
-    SOURCE_DIR$ python jPTDP.py --dynet-seed 123456789 [--dynet-mem <int>] [--epochs <int>] [--lstmdims <int>] [--lstmlayers <int>] [--hidden <int>] [--wembedding <int>] [--cembedding <int>] [--pembedding <int>] [--prevectors <path-to-pre-trained-word-embedding-file>] [--model <String>] [--params <String>] --outdir <path-to-output-directory> --train <path-to-train-file>  --dev <path-to-dev-file>
+    SOURCE_DIR$ python jPTDP.py --dynet-seed 123456789 [--dynet-mem <int>] [--epochs <int>] [--lstmdims <int>] [--lstmlayers <int>] [--hidden <int>] [--wembedding <int>] [--cembedding <int>] [--membedding <int>] [--tembedding <int>] [--pembedding <int>] [--prevectors <path-to-pre-trained-word-embedding-file>] [--model <String>] [--params <String>] --outdir <path-to-output-directory> --train <path-to-train-file>  --dev <path-to-dev-file>
 
 where hyper-parameters in [] are optional:
 
@@ -34,6 +34,8 @@ where hyper-parameters in [] are optional:
  * `--hidden`: Specify size of MLP hidden layer. Default value is 100.
  * `--wembedding`: Specify size of word embeddings. Default value is 100.
  * `--cembedding`: Specify size of character embeddings. Default value is 50.
+ * `--membedding`: Specify size of morpheme embeddings. Default value is 50.
+ * `--tembedding`: Specify size of morpheme tag embeddings. Default value is 50.
  * `--pembedding`: Specify size of POS tag embeddings. Default value is 100.
  * `--prevectors`: Specify path to the pre-trained word embedding file for initialization. Default value is "None" (i.e. word embeddings are randomly initialized).
  * `--model`: Specify a  name for model parameters file. Default value is "model".
@@ -41,11 +43,12 @@ where hyper-parameters in [] are optional:
  * `--outdir`: Specify path to directory where the trained model will be saved. 
  * `--train`: Specify path to the training data file.
  * `--dev`: Specify path to the development data file. 
+ * `--segmentation`: Specify path to the morpheme segmentation file. 
 
 
 __For example:__
 
-    SOURCE_DIR$ python jPTDP.py --dynet-seed 123456789 --dynet-mem 1000 --epochs 30 --lstmdims 128 --lstmlayers 2 --hidden 100 --wembedding 100 --cembedding 50 --pembedding 100  --model trialmodel --params trialmodel.params --outdir sample/ --train sample/train.conllu --dev sample/dev.conllu
+    SOURCE_DIR$ python jPTDP.py --dynet-seed 123456789 --dynet-mem 1000 --epochs 30 --lstmdims 128 --lstmlayers 2 --hidden 100 --wembedding 100 --cembedding 50 --membedding 50 --tembedding 50 --pembedding 100  --model trialmodel --params trialmodel.params --outdir sample/ --train sample/train.conllu --dev sample/dev.conllu --segmentation sample/segment.en
     
 will produce model files `trialmodel` and `trialmodel.params` in folder `SOURCE_DIR/sample`. 
 

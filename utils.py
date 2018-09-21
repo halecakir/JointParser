@@ -5,6 +5,7 @@ from gensim.models import KeyedVectors
 from gensim.models.wrappers import FastText
 import pickle
 import numpy as np
+import random
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -51,12 +52,14 @@ def vocab(conll_path,morph_dict):
 
     m2i = {}
     m2i["UNK"] = 0
-    m2i["<w>"] = 1
-    m2i["</w>"] = 2
+
+    t2i = {}
+    t2i["UNK"] = 0
+    # Create morpheme tag indexes here. (CURSOR)
 
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
-    root.idMorphs = [1, 2]
+    root.idMorphs = [0]
     tokens = [root]
 
     #create morpheme indexes out of morpheme dictionary
@@ -64,8 +67,8 @@ def vocab(conll_path,morph_dict):
     for word in morph_dict.keys():
         all_morphs += morph_dict[word]
     all_morphs = list(set(all_morphs))
-    for idx in xrange(len(all_morphs)):
-        m2i[all_morphs[idx]] = idx+3
+    for idx in range(len(all_morphs)):
+        m2i[all_morphs[idx]] = idx+1
 
     for line in open(conll_path, 'r'):
         tok = line.strip().split('\t')
@@ -97,20 +100,10 @@ def vocab(conll_path,morph_dict):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                morphs_of_word = []
-                morphs_of_word.append(m2i["<w>"])
-                if entry.norm in morph_dict:
-                    for morph in morph_dict[entry.norm]:
-                        if morph not in m2i:
-                            morphs_of_word.append(m2i["UNK"])
-                        else:
-                            morphs_of_word.append(m2i[morph])
-                elif entry.norm in m2i:
-                    morphs_of_word.append(m2i[entry.norm])
-                else:
-                    morphs_of_word.append(m2i["UNK"])
-                morphs_of_word.append(m2i["</w>"])
-                entry.idMorphs = morphs_of_word
+                entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
+
+                #Create morpheme tag gold data here! (CURSOR)
+                entry.idMorphTags = [0]
 
                 tokens.append(entry)
 
@@ -119,10 +112,10 @@ def vocab(conll_path,morph_dict):
         posCount.update([node.pos for node in tokens if isinstance(node, ConllEntry)])
         relCount.update([node.relation for node in tokens if isinstance(node, ConllEntry)])
 
-    return (wordsCount, {w: i for i, w in enumerate(wordsCount.keys())}, c2i, m2i, posCount.keys(), relCount.keys())
+    return (wordsCount, {w: i for i, w in enumerate(list(wordsCount.keys()))}, c2i, m2i, t2i, list(posCount.keys()), list(relCount.keys()))
 
 
-def read_conll(fh, c2i, morphemes):
+def read_conll(fh, c2i, m2i, t2i, morph_dict):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
@@ -170,20 +163,11 @@ def read_conll(fh, c2i, morphemes):
                     chars_of_word.append(2)
                     entry.idChars = chars_of_word
 
-                morphs_of_word = []
-                morphs_of_word.append(morphemes[1]["<w>"])
-                if entry.norm in morphemes[0]:
-                    for morph in morphemes[0][entry.norm]:
-                        if morph not in morphemes[1]:
-                            morphs_of_word.append(morphemes[1]["UNK"])
-                        else:
-                            morphs_of_word.append(morphemes[1][morph])
-                elif entry.norm in morphemes[1]:
-                    morphs_of_word.append(morphemes[1][entry.norm])
-                else:
-                    morphs_of_word.append(morphemes[1]["UNK"])
-                morphs_of_word.append(morphemes[1]["</w>"])
-                entry.idMorphs = morphs_of_word
+
+                entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
+
+                #Create morpheme tag gold data here! (CURSOR)
+                entry.idMorphTags = [0]
 
                 tokens.append(entry)
 
@@ -249,12 +233,32 @@ def load_embeddings_file(file_name, lower=False, type=None):
 
     return vectors, len(vectors["UNK"])
 
-def get_morph_dict(seqment_file, lowerCase):
-    if seqment_file == "N/A":
+def save_embeddings(file_name, vectors, type=None):
+    if type == None:
+        file_type = file_name.rsplit(".",1)[1] if '.' in file_name else None
+        if file_type == "p":
+            type = "pickle"
+        elif file_type == "bin":
+            type = "word2vec"
+        else:
+            type = "word2vec"
+
+    if "UNK" not in vectors:
+        unk = np.mean([vectors[word] for word in vectors.keys()], axis=0)
+        vectors["UNK"] = unk
+
+    if type == "word2vec":
+        pass
+    elif type == "pickle":
+        with open(file_name,'wb') as fp:
+            pickle.dump(vectors, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+def get_morph_dict(segment_file, lowerCase=False):
+    if segment_file == "N/A":
         return {}
 
     morph_dict = {}
-    with open(seqment_file) as text:
+    with open(segment_file,encoding="utf8") as text:
         for line in text:
             line = line.strip()
             index = line.split(":")[0].lower() if lowerCase else line.split(":")[0]
@@ -264,3 +268,33 @@ def get_morph_dict(seqment_file, lowerCase):
             else:
                 morph_dict[index] = [data]
     return morph_dict
+
+def generate_morphs(word, split_points):
+    morphs = []
+    morph = ""
+    for i,split in enumerate(split_points):
+        morph += word[i]
+        if split > random.random():
+            morphs.append(morph)
+            morph = ""
+    if len(morph) > 0:
+        morphs.append(morph)
+    return morphs
+
+def get_morph_gold(word, morph_dict):
+    split_points = []
+    if word in morph_dict:
+        for morph in morph_dict[word]:
+            for i in range(len(morph)):
+                if i == len(morph)-1:
+                    split_points.append(True)
+                else:
+                    split_points.append(False)
+    else:
+        for i in range(len(word)):
+            if i == len(word)-1:
+                split_points.append(True)
+            else:
+                split_points.append(False)
+
+    return split_points

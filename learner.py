@@ -8,7 +8,7 @@ import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 
 class jPosDepLearner:
-    def __init__(self, vocab, pos, rels, w2i, c2i, m2i, morph_dict, options):
+    def __init__(self, vocab, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options):
         self.model = ParameterCollection()
         random.seed(1)
         self.trainer = AdamTrainer(self.model)
@@ -23,20 +23,23 @@ class jPosDepLearner:
         self.labelsFlag = options.labelsFlag
         self.costaugFlag = options.costaugFlag
         self.bibiFlag = options.bibiFlag
-        self.morphMode = options.morphMode if options.morphMode >= 0 and options.morphMode <= 2 else 0
+        self.morphFlag = options.morphFlag
+        self.morphTagFlag = options.morphTagFlag
         self.lowerCase = options.lowerCase
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
         self.mdims = options.membedding_dims
+        self.tdims = options.tembedding_dims
         self.cdims = options.cembedding_dims
         self.layers = options.lstm_layers
         self.wordsCount = vocab
-        self.vocab = {word: ind + 3 for word, ind in w2i.iteritems()}
+        self.vocab = {word: ind + 3 for word, ind in iter(w2i.items())}
         self.pos = {word: ind for ind, word in enumerate(pos)}
         self.id2pos = {ind: word for ind, word in enumerate(pos)}
         self.c2i = c2i
         self.m2i = m2i
+        self.t2i = t2i
         self.morph_dict = morph_dict
         self.rels = {word: ind for ind, word in enumerate(rels)}
         self.irels = rels
@@ -46,8 +49,9 @@ class jPosDepLearner:
         self.vocab['*INITIAL*'] = 2
         self.wlookup = self.model.add_lookup_parameters((len(vocab) + 3, self.wdims))
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
-        self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
+
+        self.ext_embeddings = None
 
         if options.external_embedding is not None:
             ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
@@ -55,42 +59,31 @@ class jPosDepLearner:
             print("Initializing word embeddings by pre-trained vectors")
             count = 0
             for word in self.vocab:
-                _word = unicode(word.lower(), "utf-8") if self.lowerCase else unicode(word, "utf-8")
-                if _word in ext_embeddings:
+                if word in ext_embeddings:
                     count += 1
-                    self.wlookup.init_row(self.vocab[word], ext_embeddings[_word])
+                    self.wlookup.init_row(self.vocab[word], ext_embeddings[word])
+            self.ext_embeddings = ext_embeddings
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
 
-        if self.morphMode > 0 and options.external_morph_embedding is not None:
-            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_morph_embedding, lower=self.lowerCase, type=options.external_morph_embedding_type)
-            assert (ext_emb_dim == self.mdims)
-            print("Initializing morph embeddings by pre-trained vectors")
-            count = 0
-            for morph in self.m2i:
-                _morph = unicode(morph.lower(), "utf-8") if self.lowerCase else unicode(morph, "utf-8")
-                if _morph in ext_embeddings:
-                    count += 1
-                    self.mlookup.init_row(self.m2i[morph], ext_embeddings[_morph])
-            print("Vocab size: %d; #morphs having pretrained vectors: %d" % (len(self.m2i), count))
+        self.morph_dims = 2*2*self.mdims if self.morphFlag else 0
+        self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
 
-        self.morph_factor = 2 if self.morphMode == 2 else (1 if self.morphMode == 1 else 0)
-
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor, self.ldims, self.model)]
+        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
             self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
-            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor + self.pdims, self.ldims, self.model)]
+            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
         else:
-            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor, self.ldims, self.model),
-                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.mdims * self.morph_factor, self.ldims, self.model)]
+            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
 
         self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
 
@@ -114,8 +107,42 @@ class jPosDepLearner:
                       softmax))
 
         self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
-        if self.morphMode == 2:
-            self.morph_rnn = RNNSequencePredictor(LSTMBuilder(1, self.mdims, self.mdims, self.model))
+
+        if self.morphFlag:
+            self.seg_lstm = [VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model),
+                                    VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model)]
+            self.seg_hidLayer = self.model.add_parameters((1, self.cdims*2))
+            self.slookup = self.model.add_lookup_parameters((len(self.c2i), self.cdims))
+
+            self.char_lstm = [VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model),
+                                    VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model)]
+            self.char_hidLayer = self.model.add_parameters((self.mdims, self.mdims*2))
+            self.mclookup = self.model.add_lookup_parameters((len(self.c2i), self.cdims))
+
+            self.morph_lstm = [VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model),
+                                VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model)]
+            self.morph_hidLayer = self.model.add_parameters((self.wdims, self.wdims*2))
+            self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
+
+            self.morph_rnn = RNNSequencePredictor(LSTMBuilder(1, self.mdims*2, self.mdims*2, self.model))
+
+        if self.morphTagFlag:
+            # All weights for morpheme taging will be here. (CURSOR)
+            self.mtag_rnn = RNNSequencePredictor(LSTMBuilder(1, self.tdims, self.tdims, self.model))
+            self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
+
+    def initialize(self):
+        if self.morphFlag and self.ext_embeddings:
+            print("Initializing word embeddings by morph2vec")
+            count = 0
+            for word in self.vocab:
+                if word not in self.ext_embeddings and word in self.morph_dict:
+                    morph_seg = self.morph_dict[word]
+
+                    count += 1
+                    self.wlookup.init_row(self.vocab[word], self.__getWordVector(morph_seg).vec_value())
+            print("Vocab size: %d; #missing words having generated vectors: %d" % (len(self.vocab), count))
+            renew_cg()
 
     def __getExpr(self, sentence, i, j):
 
@@ -138,13 +165,26 @@ class jPosDepLearner:
         return output
 
     def __evaluate(self, sentence):
-        exprs = [[self.__getExpr(sentence, i, j) for j in xrange(len(sentence))] for i in xrange(len(sentence))]
+        exprs = [[self.__getExpr(sentence, i, j) for j in range(len(sentence))] for i in range(len(sentence))]
         scores = np.array([[output.scalar_value() for output in exprsRow] for exprsRow in exprs])
 
         return scores, exprs
 
     def pick_neg_log(self, pred, gold):
         return -dynet.log(dynet.pick(pred, gold))
+
+    def binary_crossentropy(self, pred, gold):
+        return dynet.binary_log_loss(pred, gold)
+
+    def cosine_proximity(self, pred, gold):
+        def l2_normalize(x):
+            square_sum = dynet.sqrt(dynet.bmax(dynet.sum_elems(dynet.square(x)), np.finfo(float).eps * dynet.ones((1))[0]))
+            return dynet.cdiv(x, square_sum)
+
+        y_true = l2_normalize(pred)
+        y_pred = l2_normalize(gold)
+
+        return -dynet.sum_elems(dynet.cmult(y_true, y_pred))
 
     def __getRelVector(self, sentence, i, j):
         if sentence[i].rheadfov is None:
@@ -161,6 +201,44 @@ class jPosDepLearner:
         else:
             return _outputVector
 
+    def __getSegmentationVector(self, word):
+        slstm_forward = self.seg_lstm[0].initial_state()
+        slstm_backward = self.seg_lstm[1].initial_state()
+
+        seg_lstm_forward = slstm_forward.transduce([self.slookup[self.c2i[char] if char in self.c2i else 0] for char in word])
+        seg_lstm_backward = slstm_backward.transduce([self.slookup[self.c2i[char] if char in self.c2i else 0] for char in reversed(word)])
+
+        seg_vec = []
+        for seg, rev_seg in zip(seg_lstm_forward,reversed(seg_lstm_backward)):
+            seg_vec.append(dynet.logistic(self.seg_hidLayer.expr() * concatenate([seg,rev_seg])))
+
+        seg_vec = concatenate(seg_vec)
+
+        return seg_vec
+
+    def __getMorphVector(self, morph):
+        clstm_forward = self.char_lstm[0].initial_state()
+        clstm_backward = self.char_lstm[1].initial_state()
+
+        char_lstm_forward = clstm_forward.transduce([self.mclookup[self.c2i[char] if char in self.c2i else 0] for char in morph] if len(morph) > 0 else [self.mclookup[0]])[-1]
+        char_lstm_backward = clstm_backward.transduce([self.mclookup[self.c2i[char] if char in self.c2i else 0] for char in reversed(morph)] if len(morph) > 0 else [self.mclookup[0]])[-1]
+
+        char_emb = self.char_hidLayer.expr() * concatenate([char_lstm_forward,char_lstm_backward])
+
+        return concatenate([self.mlookup[self.m2i[morph] if morph in self.m2i else 0], char_emb])
+
+    def __getWordVector(self, morph_seg):
+        mlstm_forward = self.morph_lstm[0].initial_state()
+        mlstm_backward = self.morph_lstm[1].initial_state()
+
+        morph_lstm_forward = mlstm_forward.transduce([self.__getMorphVector(morph) for morph in morph_seg])[-1]
+        morph_lstm_backward = mlstm_backward.transduce([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[-1]
+
+        morph_enc = concatenate([morph_lstm_forward, morph_lstm_backward])
+        word_vec = self.morph_hidLayer.expr() * morph_enc
+
+        return word_vec
+
     def Save(self, filename):
         self.model.save(filename)
 
@@ -169,7 +247,7 @@ class jPosDepLearner:
 
     def Predict(self, conll_path):
         with open(conll_path, 'r') as conllFP:
-            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, (self.morph_dict, self.m2i))):
+            for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 for entry in conll_sentence:
@@ -178,17 +256,33 @@ class jPosDepLearner:
                     last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
+                    entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
 
-                    if self.morphMode == 1:
-                        suffixvec = self.mlookup[entry.idMorphs[-2]] if self.mdims > 0 else None
-                        entry.vec = concatenate(filter(None, [wordvec, suffixvec, last_state_char, rev_last_state_char]))
-                    elif self.morphMode == 2:
-                        last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in entry.idMorphs])[-1]
-                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[
+                    if self.morphFlag:
+                        if len(entry.norm) > 2:
+                            seg_vec = self.__getSegmentationVector(entry.norm)
+                            morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                        else:
+                            morph_seg = [entry.norm]
+
+                        entry.pred_seg = seg_vec.vec_value() if len(entry.norm) > 2 else entry.idMorphs
+                        entry.seg = entry.idMorphs
+
+                        last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
+                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph]))
-                    else:
-                        entry.vec = concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char]))
+
+                        entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
+
+                    if self.morphTagFlag:
+                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
+                        morph_tags = entry.idMorphTags
+
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[
+                            -1]
+
+                        entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -289,7 +383,51 @@ class jPosDepLearner:
                 if not dump:
                     yield sentence
 
+    def morph2word(self, morph_dict):
+        word_emb = {}
+        for word in morph_dict.keys():
+            morph_seg = morph_dict[word]
+
+            word_vec = self.__getWordVector(morph_seg)
+            word_emb[word] = word_vec.vec_value()
+        renew_cg()
+        return word_emb
+
+    def morph(self):
+        morph_dict = {}
+        for morph in self.m2i.keys():
+            morph_dict[morph] = self.__getMorphVector(morph).vec_value()
+        renew_cg()
+        return morph_dict
+
+    def Train_Morph(self):
+        self.trainer.set_sparse_updates(False)
+        start = time.time()
+        for iWord, word in enumerate(list(self.morph_dict.keys())):
+            if iWord % 2000 == 0 and iWord != 0:
+                print("Processing word number: %d" % iWord, ", Time: %.2f" % (time.time() - start))
+                start = time.time()
+
+            morph_seg = self.morph_dict[word]
+            morph_vec = self.__getWordVector(morph_seg)
+
+            if self.ext_embeddings is None:
+                vec_gold = self.wlookup[int(self.vocab.get(word, 0))].vec_value()
+            elif word in self.ext_embeddings:
+                vec_gold = self.ext_embeddings[word]
+            else:
+                vec_gold = None
+
+            if vec_gold is not None:
+                y_gold = dynet.vecInput(self.wdims)
+                y_gold.set(vec_gold)
+                mErrs = self.cosine_proximity(morph_vec, y_gold)
+                mErrs.backward()
+                self.trainer.update()
+            renew_cg()
+
     def Train(self, conll_path):
+        self.trainer.set_sparse_updates(True)
         eloss = 0.0
         mloss = 0.0
         eerrors = 0
@@ -297,17 +435,18 @@ class jPosDepLearner:
         start = time.time()
 
         with open(conll_path, 'r') as conllFP:
-            shuffledData = list(read_conll(conllFP, self.c2i, (self.morph_dict, self.m2i)))
+            shuffledData = list(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict))
             random.shuffle(shuffledData)
 
             errs = []
             lerrs = []
             posErrs = []
+            segErrs = []
 
             for iSentence, sentence in enumerate(shuffledData):
                 if iSentence % 500 == 0 and iSentence != 0:
-                    print "Processing sentence number: %d" % iSentence, ", Loss: %.4f" % (
-                                eloss / etotal), ", Time: %.2f" % (time.time() - start)
+                    print("Processing sentence number: %d" % iSentence, ", Loss: %.4f" % (
+                                eloss / etotal), ", Time: %.2f" % (time.time() - start))
                     start = time.time()
                     eerrors = 0
                     eloss = 0.0
@@ -325,15 +464,36 @@ class jPosDepLearner:
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
 
-                    if self.morphMode == 1:
-                        suffixvec = self.mlookup[entry.idMorphs[-2]] if self.mdims > 0 else None
-                        entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, suffixvec, last_state_char, rev_last_state_char])), 0.33)
-                    elif self.morphMode == 2:
-                        last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in entry.idMorphs])[-1]
-                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.mlookup[m] for m in reversed(entry.idMorphs)])[-1]
-                        entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char, last_state_morph, rev_last_state_morph])), 0.33)
-                    else:
-                        entry.vec = dynet.dropout(concatenate(filter(None, [wordvec, last_state_char, rev_last_state_char])), 0.33)
+                    entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
+
+                    if self.morphFlag:
+                        if len(entry.norm) > 2:
+                            seg_vec = self.__getSegmentationVector(entry.norm)
+                            morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+
+                            vec_gold = dynet.vecInput(seg_vec.dim()[0][0])
+                            vec_gold.set(entry.idMorphs)
+                            segErrs.append(self.binary_crossentropy(seg_vec,vec_gold))
+                        else:
+                            morph_seg = [entry.norm]
+
+                        last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
+                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
+                            -1]
+
+                        entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
+
+                    if self.morphTagFlag:
+                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
+                        morph_tags = entry.idMorphTags
+
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[
+                            -1]
+
+                        entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
+
+                    entry.vec = dynet.dropout(entry.vec, 0.33)
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -425,15 +585,16 @@ class jPosDepLearner:
                 etotal += len(conll_sentence)
 
                 if iSentence % 1 == 0:
-                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs))
+                    if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(segErrs) > 0:
+                        eerrs = (esum(errs + lerrs + posErrs + segErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
                         errs = []
                         lerrs = []
                         posErrs = []
+                        segErrs = []
 
                     renew_cg()
 
-        print "Loss: %.4f" % (mloss / iSentence)
+        print("Loss: %.4f" % (mloss / iSentence))
