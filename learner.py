@@ -464,7 +464,7 @@ class jPosDepLearner:
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[
                         -1]
 
-                    entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
+                    entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -480,8 +480,9 @@ class jPosDepLearner:
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
+                        encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
 
-                        entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
+                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
                     if self.morphTagFlag:
                         #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
@@ -490,10 +491,9 @@ class jPosDepLearner:
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[
                             -1]
+                        encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
 
-                        entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
-
-                    entry.vec = dynet.dropout(entry.vec, 0.33)
+                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None

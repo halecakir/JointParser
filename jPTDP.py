@@ -40,6 +40,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     #print 'Using external embedding:', options.external_embedding
+    pretrained_flag = False
 
     if options.predictFlag:
         with open(options.params, 'rb') as paramsfp:
@@ -73,6 +74,7 @@ if __name__ == '__main__':
                 os.path.isfile(os.path.join(options.output, os.path.basename(options.model))) :
 
             print('Found a previous saved model => Loading this model')
+            pretrained_flag = True
             with open(os.path.join(options.output, options.params), 'rb') as paramsfp:
                 words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
             stored_opt.external_embedding = None
@@ -103,7 +105,7 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                        if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
                         count += 1
@@ -111,8 +113,9 @@ if __name__ == '__main__':
                 print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
                 print("UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count))
                 print("POS accuracy:\t%.2f" % (float(posCount) * 100 / count))
-                print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
                 print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
+                if options.morphFlag:
+                    print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
 
                 score = float(poslasCount) * 100 / count
                 if score >= highestScore:
@@ -132,14 +135,12 @@ if __name__ == '__main__':
             #print 'Initializing joint model'
             parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options)
 
-        for epoch in range(5):
-            print('\n-----------------\nStarting Morph2Vec epoch', epoch + 1)
-            parser.Train_Morph()
+        if options.morphFlag and not pretrained_flag:
+            for epoch in range(5):
+                print('\n-----------------\nStarting Morph2Vec epoch', epoch + 1)
+                parser.Train_Morph()
 
-        utils.save_embeddings("word_emb2.p",parser.morph2word(utils.get_morph_dict("special/turkish_new_data_gold_segmented.txt",True)))
-        utils.save_embeddings("morph_emb2.p",parser.morph())
-
-        parser.initialize()
+            parser.initialize()
 
         for epoch in range(options.epochs):
             print('\n-----------------\nStarting epoch', epoch + 1)
@@ -181,7 +182,7 @@ if __name__ == '__main__':
                             lasCount += 1
                         if entry.parent_id == entry.pred_parent_id:
                             uasCount += 1
-                        if len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                        if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
                         count += 1
@@ -189,9 +190,10 @@ if __name__ == '__main__':
                 print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
                 print("UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count))
                 print("POS accuracy:\t%.2f" % (float(posCount) * 100 / count))
-                print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
                 print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
-                
+                if options.morphFlag:
+                    print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
+
                 score = float(poslasCount) * 100 / count
                 if score >= highestScore:
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
