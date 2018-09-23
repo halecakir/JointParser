@@ -28,6 +28,9 @@ class ConllEntry:
 
         self.idChars = []
         self.idMorphs = []
+        self.idMorphTags = []
+        self.decoder_gold_input = []
+        self.decoder_gold_output = []
 
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
@@ -49,12 +52,14 @@ def vocab(conll_path,morph_dict):
     c2i["NUM"] = 3
     c2i["EMAIL"] = 4
     c2i["URL"] = 5
+    c2i["start"] = 6
 
     m2i = {}
     m2i["UNK"] = 0
 
     t2i = {}
     t2i["UNK"] = 0
+    t2i["<s>"] = 1
     # Create morpheme tag indexes here. (CURSOR)
 
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
@@ -102,8 +107,10 @@ def vocab(conll_path,morph_dict):
 
                 entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
 
-                #Create morpheme tag gold data here! (CURSOR)
-                entry.idMorphTags = [0]
+                #entry.idMorphTags = [0]
+                for feat in entry.feats.split("|"):
+                    if feat not in t2i:
+                        t2i[feat] = len(t2i)
 
                 tokens.append(entry)
 
@@ -167,9 +174,19 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
                 entry.idMorphs = get_morph_gold(entry.norm, morph_dict)
 
                 #Create morpheme tag gold data here! (CURSOR)
-                entry.idMorphTags = [0]
+                #entry.idMorphTags = [0]
+                feats_of_word = []
+                for feat in entry.feats.split("|"):
+                    if feat in t2i:
+                        feats_of_word.append(t2i[feat])
+                    else:
+                        feats_of_word.append(t2i["UNK"])
+                entry.idMorphTags = feats_of_word
 
-                tokens.append(entry)
+                entry.decoder_gold_input = [t2i["<s>"]] + entry.idMorphTags + [t2i["<s>"]]
+                entry.decoder_gold_output = entry.idMorphTags
+
+            tokens.append(entry)
 
     if len(tokens) > 1:
         yield tokens
