@@ -7,7 +7,6 @@ import utils, time, random, decoder
 import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 
-ATTENTION_SIZE = 20
 
 class jPosDepLearner:
     def __init__(self, vocab, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options):
@@ -46,6 +45,7 @@ class jPosDepLearner:
         self.rels = {word: ind for ind, word in enumerate(rels)}
         self.irels = rels
         self.pdims = options.pembedding_dims
+        self.tagging_attention_size = options.tagging_att_size
 
         self.vocab['*PAD*'] = 1
         self.vocab['*INITIAL*'] = 2
@@ -133,14 +133,14 @@ class jPosDepLearner:
             self.dec_lstm = VanillaLSTMBuilder(1, 2 * self.cdims + self.tdims + self.cdims * 2, self.cdims, self.model)
 
             # Attention
-            self.attention_w1 = self.model.add_parameters((ATTENTION_SIZE, self.cdims * 2))
-            self.attention_w2 = self.model.add_parameters((ATTENTION_SIZE, self.cdims * 2))
-            self.attention_v = self.model.add_parameters((1, ATTENTION_SIZE))
+            self.attention_w1 = self.model.add_parameters((self.tagging_attention_size, self.cdims * 2))
+            self.attention_w2 = self.model.add_parameters((self.tagging_attention_size, self.cdims * 2))
+            self.attention_v = self.model.add_parameters((1, self.tagging_attention_size))
 
             # Attention Context
-            self.attention_w1_context = self.model.add_parameters((ATTENTION_SIZE, self.cdims * 2))
-            self.attention_w2_context = self.model.add_parameters((ATTENTION_SIZE, self.cdims * 2))
-            self.attention_v_context = self.model.add_parameters((1, ATTENTION_SIZE))
+            self.attention_w1_context = self.model.add_parameters((self.tagging_attention_size, self.cdims * 2))
+            self.attention_w2_context = self.model.add_parameters((self.tagging_attention_size, self.cdims * 2))
+            self.attention_v_context = self.model.add_parameters((1, self.tagging_attention_size))
 
             # MLP - Softmax
             self.decoder_w = self.model.add_parameters((len(t2i), self.cdims))

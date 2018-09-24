@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_option("--membedding", type="int", dest="membedding_dims", default=50)
     parser.add_option("--tembedding", type="int", dest="tembedding_dims", default=50)
     parser.add_option("--pembedding", type="int", dest="pembedding_dims", default=100)
+    parser.add_option("--tagging-att-size", type="int", dest="tagging_att_size", default=20)
     parser.add_option("--epochs", type="int", dest="epochs", default=30)
     parser.add_option("--hidden", type="int", dest="hidden_units", default=100)
     #parser.add_option("--lr", type="float", dest="learning_rate", default=None)
