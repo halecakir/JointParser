@@ -385,7 +385,7 @@ class jPosDepLearner:
                     for entry in conll_sentence:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                        entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
+                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
                 for entry in conll_sentence:
@@ -603,7 +603,7 @@ class jPosDepLearner:
                     for entry in conll_sentence:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                        entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
+                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
                 for idx, entry in enumerate(conll_sentence):
