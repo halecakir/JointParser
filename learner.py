@@ -377,20 +377,26 @@ class jPosDepLearner:
             for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
-                sentence_context = []
-                last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
-                rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
-                sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
-                for entry in conll_sentence:
-                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
-                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                    entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
-                    sentence_context.append(entry.char_rnn_states[-1])
+                if self.morphTagFlag:
+                    sentence_context = []
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
+                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
+                    for entry in conll_sentence:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
+                        entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
+                        sentence_context.append(entry.char_rnn_states[-1])
 
                 for entry in conll_sentence:
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
-                    entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
+                    if self.morphTagFlag:
+                        entry.vec = concatenate([wordvec, entry.char_rnn_states[-1]])
+                    else:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
+                        entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -411,10 +417,11 @@ class jPosDepLearner:
                     if self.morphTagFlag:
                         #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
                         word_context = [c for i, c in enumerate(sentence_context) if i - 1 != idx]
-                        predicted_sequence = self.generate(entry.char_rnn_states, word_context)
-                        morph_tags = predicted_sequence
+                        entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
+                        morph_tags = entry.pred_tags
+                        entry.tags = entry.idMorphTags
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
                         entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
@@ -588,23 +595,28 @@ class jPosDepLearner:
 
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
-                sentence_context = []
-                last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
-                rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
-                sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
-                for entry in conll_sentence:
-                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
-                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                    entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
-                    sentence_context.append(entry.char_rnn_states[-1])
+                if self.morphTagFlag:
+                    sentence_context = []
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["start"]]])[-1]
+                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
+                    for entry in conll_sentence:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
+                        entry.char_rnn_states = [concatenate(f,b) for f,b in zip(last_state_char, rev_last_state_char)]
+                        sentence_context.append(entry.char_rnn_states[-1])
 
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
                     wordvec = self.wlookup[
                         int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
-
-                    entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
+                    if self.morphTagFlag:
+                        entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
+                    else:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
+                        entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -632,7 +644,7 @@ class jPosDepLearner:
                         morph_tags = predicted_sequence
 
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
                         encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
 

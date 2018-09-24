@@ -25,12 +25,12 @@ class ConllEntry:
         self.pred_parent_id = None
         self.pred_relation = None
         self.pred_pos = None
+        self.pred_tags = None
 
         self.idChars = []
         self.idMorphs = []
         self.idMorphTags = []
         self.decoder_gold_input = []
-        self.decoder_gold_output = []
 
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
@@ -184,7 +184,6 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
                 entry.idMorphTags = feats_of_word
 
                 entry.decoder_gold_input = [t2i["<s>"]] + entry.idMorphTags + [t2i["<s>"]]
-                entry.decoder_gold_output = entry.idMorphTags
 
             tokens.append(entry)
 

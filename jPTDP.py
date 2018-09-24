@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_option("--lstmdims", type="int", dest="lstm_dims", default=128)
     parser.add_option("--disablemorph", action="store_false", dest="morphFlag", default=True)
     parser.add_option("--disablemorphtag", action="store_false", dest="morphTagFlag", default=True)
+    parser.add_option("--disablepipeline", action="store_false", dest="pipeline", default=True)
     parser.add_option("--disableblstm", action="store_false", dest="blstmFlag", default=True)
     parser.add_option("--disablelabels", action="store_false", dest="labelsFlag", default=True)
     parser.add_option("--predict", action="store_true", dest="predictFlag", default=False)
@@ -92,6 +93,7 @@ if __name__ == '__main__':
                 posCount = 0
                 segAcc = 0
                 poslasCount = 0
+                tagCount = 0
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
 
@@ -109,6 +111,14 @@ if __name__ == '__main__':
                         if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
+                        if options.morphTagFlag:
+                            if len(entry.pred_tags) == len(entry.tags):
+                                all_equal = True
+                                for g, p in zip(entry.tags, entry.pred_tags):
+                                    if g != p:
+                                        all_equal = False
+                                if all_equal:
+                                    tagCount += 1
                         count += 1
 
                 print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
@@ -117,6 +127,8 @@ if __name__ == '__main__':
                 print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
                 if options.morphFlag:
                     print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
+                if options.morphTagFlag:
+                    print("TAG accuracy:\t%.2f" % (float(tagCount) * 100 / count))
 
                 score = float(poslasCount) * 100 / count
                 if score >= highestScore:
@@ -136,7 +148,7 @@ if __name__ == '__main__':
             #print 'Initializing joint model'
             parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options)
 
-        if options.morphFlag and not pretrained_flag:
+        if options.pipeline and options.morphFlag and not pretrained_flag:
             for epoch in range(5):
                 print('\n-----------------\nStarting Morph2Vec epoch', epoch + 1)
                 parser.Train_Morph()
@@ -169,6 +181,8 @@ if __name__ == '__main__':
                 posCount = 0
                 segAcc = 0
                 poslasCount = 0
+                tagCount = 0
+
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
                     
@@ -186,6 +200,14 @@ if __name__ == '__main__':
                         if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
+                        if options.morphTagFlag:
+                            if len(entry.pred_tags) == len(entry.tags):
+                                all_equal = True
+                                for g, p in zip(entry.tags, entry.pred_tags):
+                                    if g != p:
+                                        all_equal = False
+                                if all_equal:
+                                    tagCount += 1
                         count += 1
                         
                 print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
@@ -194,7 +216,8 @@ if __name__ == '__main__':
                 print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
                 if options.morphFlag:
                     print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
-
+                if options.morphTagFlag:
+                    print("TAG accuracy:\t%.2f" % (float(tagCount) * 100 / count))
                 score = float(poslasCount) * 100 / count
                 if score >= highestScore:
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
