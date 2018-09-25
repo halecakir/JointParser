@@ -130,11 +130,6 @@ class jPosDepLearner:
 
         if self.morphTagFlag:
             # All weights for morpheme taging will be here. (CURSOR)
-            self.input_lookup = self.model.add_lookup_parameters((len(self.c2i), self.cdims))
-
-            # Encoder
-            self.enc_fwd_lstm = VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model)
-            self.enc_bwd_lstm = VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model)
 
             # Decoder
             self.dec_lstm = VanillaLSTMBuilder(1, 2 * self.cdims + self.tdims + self.cdims * 2, self.cdims, self.model)
@@ -155,7 +150,6 @@ class jPosDepLearner:
 
             self.mtag_rnn = RNNSequencePredictor(VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
-            self.t2lookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
 
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
@@ -385,23 +379,25 @@ class jPosDepLearner:
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 if self.morphTagFlag:
-                    context = []
-                    embedded = self.embed_word([self.c2i["<start>"]])
-                    encoded = self.encode_word(embedded)
-                    context.append(encoded[-1])
+                    sentence_context = []
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
                     for entry in conll_sentence:
-                        embedded = self.embed_word(entry.idChars)
-                        encoded = self.encode_word(embedded)
-                        entry.encoded_all_s = encoded
-                        entry.encoded_last_s = encoded[-1]
-                        context.append(entry.encoded_last_s)
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
+                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
+                        sentence_context.append(entry.char_rnn_states[-1])
 
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
-                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
-                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
-                    entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
+                    if self.morphTagFlag:
+                        entry.vec = concatenate([wordvec, entry.char_rnn_states[-1]])
+                    else:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
+                        entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -421,12 +417,12 @@ class jPosDepLearner:
 
                     if self.morphTagFlag:
                         #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
-                        word_context = [c for i, c in enumerate(context) if i - 1 != idx]
-                        entry.pred_tags = self.generate(entry.encoded_all_s, word_context)
+                        word_context = [c for i, c in enumerate(sentence_context) if i - 1 != idx]
+                        entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = entry.pred_tags
                         entry.tags = entry.idMorphTags
-                        last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in reversed(morph_tags)])[-1]
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
                         entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
@@ -621,26 +617,27 @@ class jPosDepLearner:
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
 
                 if self.morphTagFlag:
-                    context = []
-                    embedded = self.embed_word([self.c2i["<start>"]])
-                    encoded = self.encode_word(embedded)
-                    context.append(encoded[-1])
+                    sentence_context = []
+                    last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
                     for entry in conll_sentence:
-                        embedded = self.embed_word(entry.idChars)
-                        encoded = self.encode_word(embedded)
-                        entry.encoded_all_s = encoded
-                        entry.encoded_last_s = encoded[-1]
-                        context.append(entry.encoded_last_s)
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
+                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
+                        sentence_context.append(entry.char_rnn_states[-1])
 
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
                     wordvec = self.wlookup[
                         int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
-
-                    last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
-                    rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
-                    entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
+                    if self.morphTagFlag:
+                        entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
+                    else:
+                        last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                        rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
+                        entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -662,13 +659,15 @@ class jPosDepLearner:
 
                     if self.morphTagFlag:
                         #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
-                        word_context = [c for i, c in enumerate(context) if i-1 != idx]
-                        mTagErrs.append(self.__getLossMorphTagging(entry.encoded_all_s, entry.idMorphTags, word_context))
-                        predicted_sequence = self.generate(entry.encoded_all_s, word_context)
+                        word_context = [c for i, c in enumerate(sentence_context) if i-1 != idx]
+                        mTagErrs.append(
+                            self.__getLossMorphTagging(entry.char_rnn_states, entry.idMorphTags, word_context))
+                        predicted_sequence = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = predicted_sequence
 
-                        last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in reversed(morph_tags)])[
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = \
+                        self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
                         encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
 
