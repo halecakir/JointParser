@@ -425,8 +425,8 @@ class jPosDepLearner:
                         entry.pred_tags = self.generate(entry.encoded_all_s, word_context)
                         morph_tags = entry.pred_tags
                         entry.tags = entry.idMorphTags
-                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in reversed(morph_tags)])[-1]
                         entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
@@ -667,8 +667,8 @@ class jPosDepLearner:
                         predicted_sequence = self.generate(entry.encoded_all_s, word_context)
                         morph_tags = predicted_sequence
 
-                        last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
-                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
+                        last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in morph_tags])[-1]
+                        rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.t2lookup[t] for t in reversed(morph_tags)])[
                             -1]
                         encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -765,7 +765,7 @@ class jPosDepLearner:
 
                 if iSentence % 1 == 0:
                     if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(segErrs) > 0 or len(mTagErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs + segErrs))
+                        eerrs = (esum(errs + lerrs + posErrs + segErrs + mTagErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
