@@ -127,6 +127,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
     root.idMorphs = [1, 2]
+    root.decoder_gold_input = [t2i["<s>"], t2i["<s>"]]
     tokens = [root]
 
     for line in fh:

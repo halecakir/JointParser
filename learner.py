@@ -639,12 +639,7 @@ class jPosDepLearner:
                     if self.morphTagFlag:
                         #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
                         word_context = [c for i, c in enumerate(sentence_context) if i-1 != idx]
-                        try:
-                            print(entry.idChars, entry.decoder_gold_input)
-                            mTagErrs.append(self.__getLossMorphTagging(entry.char_rnn_states, entry.decoder_gold_input, word_context))
-                        except:
-                            exit(0)
-                            print(entry.idChars, entry.decoder_gold_input)
+                        mTagErrs.append(self.__getLossMorphTagging(entry.char_rnn_states, entry.decoder_gold_input, word_context))
                         predicted_sequence = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = predicted_sequence
 
