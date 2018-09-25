@@ -186,7 +186,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
 
                 entry.decoder_gold_input = [t2i["<s>"]] + entry.idMorphTags + [t2i["<s>"]]
 
-            tokens.append(entry)
+                tokens.append(entry)
 
     if len(tokens) > 1:
         yield tokens
