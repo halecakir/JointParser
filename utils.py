@@ -7,6 +7,7 @@ import pickle
 import numpy as np
 import random
 
+
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
         self.id = id
@@ -52,7 +53,7 @@ def vocab(conll_path,morph_dict):
     c2i["NUM"] = 3
     c2i["EMAIL"] = 4
     c2i["URL"] = 5
-    c2i["start"] = 6
+    c2i["<start>"] = 6
 
     m2i = {}
     m2i["UNK"] = 0
@@ -127,7 +128,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
     root.idChars = [1, 2]
     root.idMorphs = [1, 2]
-    root.decoder_gold_input = [t2i["<s>"], t2i["<s>"]]
+    root.idMorphTags = [t2i["<s>"], t2i["<s>"]]
     tokens = [root]
 
     for line in fh:
@@ -182,9 +183,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
                         feats_of_word.append(t2i[feat])
                     else:
                         feats_of_word.append(t2i["UNK"])
-                entry.idMorphTags = feats_of_word
-
-                entry.decoder_gold_input = [t2i["<s>"]] + entry.idMorphTags + [t2i["<s>"]]
+                entry.idMorphTags = [t2i["<s>"]] + feats_of_word + [t2i["<s>"]]
 
                 tokens.append(entry)
 
