@@ -210,16 +210,18 @@ def normalize(word):
         w = re.sub(r"''", '"', w)
         return w
 
-#try:
-#    import lzma
-#except ImportError:
-#    from backports import lzma
+try:
+    import lzma
+except ImportError:
+    from backports import lzma
 
 def load_embeddings_file(file_name, lower=False, type=None):
     if type == None:
         file_type = file_name.rsplit(".",1)[1] if '.' in file_name else None
         if file_type == "p":
             type = "pickle"
+        elif file_type == "xz":
+            type = "xz"    
         elif file_type == "bin":
             type = "word2vec"
         elif file_type == "vec":
@@ -236,6 +238,29 @@ def load_embeddings_file(file_name, lower=False, type=None):
     elif type == "pickle":
         with open(file_name,'rb') as fp:
             model = pickle.load(fp)
+        words = model.keys()
+    elif type == "xz":
+        open_func = codecs.open
+        if file_name.endswith('.xz'):
+            open_func = lzma.open
+        else:
+            open_func = codecs.open
+        model = {}
+        with open_func(file_name, 'rb') as f:
+            reader = codecs.getreader('utf-8')(f, errors='ignore')
+            reader.readline()
+
+            count = 0
+            for line in reader:
+                try:
+                    fields = line.strip().split()
+                    vec = [float(x) for x in fields[1:]]
+                    word = fields[0]
+                    if word not in model:
+                        model[word] = vec
+                except ValueError:
+                    #print("Error converting: {}".format(line))
+                    pass
         words = model.keys()
 
     if lower:
