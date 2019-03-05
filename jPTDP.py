@@ -45,6 +45,7 @@ if __name__ == '__main__':
     pretrained_flag = False
 
     if options.predictFlag:
+        print("PREDICT...")
         with open(options.params, 'rb') as paramsfp:
             words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
         stored_opt.external_embedding = None
@@ -67,6 +68,7 @@ if __name__ == '__main__':
                 fh.write('\n')
 
     else:
+        print("TRAIN...")
         print("Training file: " + options.conll_train)
 
         highestScore = 0.0
@@ -114,7 +116,7 @@ if __name__ == '__main__':
                         if options.morphTagFlag:
                             if len(entry.pred_tags) == len(entry.tags):
                                 all_equal = True
-                                for g, p in zip(entry.tags, entry.pred_tags):
+                                for g, p in zip(entry.tags[1:-1], entry.pred_tags[1:-1]):
                                     if g != p:
                                         all_equal = False
                                 if all_equal:
@@ -185,7 +187,7 @@ if __name__ == '__main__':
 
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    
+
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
@@ -203,13 +205,13 @@ if __name__ == '__main__':
                         if options.morphTagFlag:
                             if len(entry.pred_tags) == len(entry.tags):
                                 all_equal = True
-                                for g, p in zip(entry.tags, entry.pred_tags):
+                                for g, p in zip(entry.tags[1:-1], entry.pred_tags[1:-1]):
                                     if g != p:
                                         all_equal = False
                                 if all_equal:
                                     tagCount += 1
                         count += 1
-                        
+
                 print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
                 print("UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count))
                 print("POS accuracy:\t%.2f" % (float(posCount) * 100 / count))
@@ -223,6 +225,6 @@ if __name__ == '__main__':
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
                     highestScore = score
                     eId = epoch + 1
-                
-                print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
+                    print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
+                print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))

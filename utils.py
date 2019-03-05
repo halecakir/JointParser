@@ -27,14 +27,14 @@ class ConllEntry:
         self.pred_relation = None
         self.pred_pos = None
         self.pred_tags = None
-
+        self.pred_tags_tokens = None
         self.idChars = []
         self.idMorphs = []
         self.idMorphTags = []
         self.decoder_gold_input = []
 
     def __str__(self):
-        values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, self.feats,
+        values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, "|".join(self.pred_tags_tokens[1:-1]) if self.pred_tags_tokens is not None else self.feats,
                   str(self.pred_parent_id) if self.pred_parent_id is not None else None, self.pred_relation, self.deps,
                   self.misc]
         return '\t'.join(['_' if v is None else v for v in values])

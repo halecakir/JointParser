@@ -421,6 +421,7 @@ class jPosDepLearner:
                         entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = entry.pred_tags
                         entry.tags = entry.idMorphTags
+                        entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
                         entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
