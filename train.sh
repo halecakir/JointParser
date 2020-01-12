@@ -41,6 +41,10 @@ elif [ $LANG = "Hungarian" ]; then
 	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-train.conllu"
 	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-test.conllu"
 	PREVECTORS="$DATASET_VARIABLE/$LANG/hu.vectors.xz"
+elif [ $LANG = "Czech" ]; then
+	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-train.conllu"
+	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-test.conllu"
+	PREVECTORS="$DATASET_VARIABLE/$LANG/cs.vectors.xz"
 fi
 
 if [ $PREDICT = "predict" ]; then
