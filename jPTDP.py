@@ -2,6 +2,21 @@
 from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
 import numpy as np
+from utils import conll18_ud_eval as ud_eval
+
+
+def save_dependencies(dependencies, path):
+    with open(path, 'w') as fh:
+        for sentence in dependencies:
+            for entry in sentence[1:]:
+                fh.write(str(entry) + '\n')
+            fh.write('\n')
+
+def score(gold_dev, gold_pred):
+    gold_ud = ud_eval.load_conllu_file(gold_dev)
+    system_ud = ud_eval.load_conllu_file(gold_pred)
+    evaluation = ud_eval.evaluate(gold_ud, system_ud)
+    return evaluation
 
 if __name__ == '__main__':
     parser = OptionParser()
@@ -55,12 +70,6 @@ if __name__ == '__main__':
 
         testoutpath = os.path.join(options.output, options.conll_test_output)
         print('Predicting POS tags and parsing dependencies')
-        #ts = time.time()
-        #test_pred = list(parser.Predict(options.conll_test))
-        #te = time.time()
-        #print 'Finished in', te-ts, 'seconds.'
-        #utils.write_conll(testoutpath, test_pred)
-
         with open(testoutpath, 'w') as fh:
             for sentence in parser.Predict(options.conll_test):
                 for entry in sentence[1:]:
@@ -90,54 +99,42 @@ if __name__ == '__main__':
 
                 count = 0
                 seg_count = 0
-                lasCount = 0
-                uasCount = 0
-                posCount = 0
                 segAcc = 0
-                poslasCount = 0
-                tagCount = 0
+
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
 
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
-                        if entry.pos == entry.pred_pos and entry.parent_id == entry.pred_parent_id and entry.pred_relation == entry.relation:
-                            poslasCount += 1
-                        if entry.pos == entry.pred_pos:
-                            posCount += 1
-                        if entry.parent_id == entry.pred_parent_id and entry.pred_relation == entry.relation:
-                            lasCount += 1
-                        if entry.parent_id == entry.pred_parent_id:
-                            uasCount += 1
                         if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
-                        if options.morphTagFlag:
-                            if len(entry.pred_tags) == len(entry.tags):
-                                all_equal = True
-                                for g, p in zip(entry.tags[1:-1], entry.pred_tags[1:-1]):
-                                    if g != p:
-                                        all_equal = False
-                                if all_equal:
-                                    tagCount += 1
                         count += 1
+                #save predicted sentences
+                save_dependencies(devPredSents, "temp/pred.conllu")
+                evaluation = score(options.conll_dev, "temp/pred.conllu")
 
-                print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
-                print("UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count))
-                print("POS accuracy:\t%.2f" % (float(posCount) * 100 / count))
-                print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
+                las = evaluation["LAS"].f1 * 100 
+                uas = evaluation["UAS"].f1 * 100 
+                upos = evaluation["UPOS"].f1 * 100
+                feats = evaluation["FEATS"].f1 * 100
+                f1_uas_las = 2 * ((las * uas)/(uas + las))
+                print("---\nLAS accuracy:\t%.2f" % (las))
+                print("UAS accuracy:\t%.2f" % (uas))
+                print("POS accuracy:\t%.2f" % (upos))
                 if options.morphFlag:
                     print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
                 if options.morphTagFlag:
-                    print("TAG accuracy:\t%.2f" % (float(tagCount) * 100 / count))
+                    print("TAG accuracy:\t%.2f" % (feats))
 
-                score = float(poslasCount) * 100 / count
-                if score >= highestScore:
+                if f1_uas_las >= highestScore:
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-                    highestScore = score
+                    highestScore = f1_uas_las
+                    eId = epoch + 1
+                    print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
-                print("POS&LAS of the previous saved model: %.2f" % (highestScore))
+                print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
         else:
             print('Extracting vocabulary')
@@ -178,12 +175,7 @@ if __name__ == '__main__':
 
                 count = 0
                 seg_count = 0
-                lasCount = 0
-                uasCount = 0
-                posCount = 0
                 segAcc = 0
-                poslasCount = 0
-                tagCount = 0
 
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
@@ -191,39 +183,30 @@ if __name__ == '__main__':
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
-                        if entry.pos == entry.pred_pos and entry.parent_id == entry.pred_parent_id and entry.pred_relation == entry.relation:
-                            poslasCount += 1
-                        if entry.pos == entry.pred_pos:
-                            posCount += 1
-                        if entry.parent_id == entry.pred_parent_id and entry.pred_relation == entry.relation:
-                            lasCount += 1
-                        if entry.parent_id == entry.pred_parent_id:
-                            uasCount += 1
                         if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
                             segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
                             seg_count += 1
-                        if options.morphTagFlag:
-                            if len(entry.pred_tags) == len(entry.tags):
-                                all_equal = True
-                                for g, p in zip(entry.tags[1:-1], entry.pred_tags[1:-1]):
-                                    if g != p:
-                                        all_equal = False
-                                if all_equal:
-                                    tagCount += 1
                         count += 1
+                #save predicted sentences
+                save_dependencies(devPredSents, "temp/pred.conllu")
+                evaluation = score(options.conll_dev, "temp/pred.conllu")
 
-                print("---\nLAS accuracy:\t%.2f" % (float(lasCount) * 100 / count))
-                print("UAS accuracy:\t%.2f" % (float(uasCount) * 100 / count))
-                print("POS accuracy:\t%.2f" % (float(posCount) * 100 / count))
-                print("POS&LAS:\t%.2f" % (float(poslasCount) * 100 / count))
+                las = evaluation["LAS"].f1 * 100 
+                uas = evaluation["UAS"].f1 * 100 
+                upos = evaluation["UPOS"].f1 * 100
+                feats = evaluation["FEATS"].f1 * 100
+                f1_uas_las = 2 * ((las * uas)/(uas + las))
+                print("---\nLAS accuracy:\t%.2f" % (las))
+                print("UAS accuracy:\t%.2f" % (uas))
+                print("POS accuracy:\t%.2f" % (upos))
                 if options.morphFlag:
                     print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
                 if options.morphTagFlag:
-                    print("TAG accuracy:\t%.2f" % (float(tagCount) * 100 / count))
-                score = float(poslasCount) * 100 / count
-                if score >= highestScore:
+                    print("TAG accuracy:\t%.2f" % (feats))
+
+                if f1_uas_las >= highestScore:
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-                    highestScore = score
+                    highestScore = f1_uas_las
                     eId = epoch + 1
                     print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
