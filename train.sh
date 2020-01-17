@@ -84,6 +84,30 @@ else
 						--disablemorphtag \
 						--disablepipeline \
 						--prevectors $PREVECTORS
+    elif [ $TYPE = "segAblation" ]; then
+		echo "Only Gold Segmentation"
+		python jPTDP.py --dynet-seed  123456789 \
+						--dynet-mem 1000 \
+						--epochs 30 \
+						--lstmdims 128 \
+						--lstmlayers 2 \
+						--hidden 100 \
+						--wembedding 100 \
+						--cembedding 50 \
+						--membedding 50 \
+						--tembedding 50 \
+						--pembedding 100 \
+						--model "$LANG-$TYPE-trialmodel" \
+						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
+						--outdir ../outdir \
+						--train $UDTRAIN \
+						--dev $UDTEST \
+						--segmentation $DATASET_VARIABLE/metu.tr \
+						--enable-gold-morph \
+						--disablemorphtag \
+						--disablepipeline \
+						--prevectors $PREVECTORS						
 	elif [ $TYPE = "morphTag" ]; then
 		echo "Only Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -105,6 +129,30 @@ else
 						--dev $UDTEST \
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablemorph \
+						--disablepipeline \
+						--prevectors $PREVECTORS
+	elif [ $TYPE = "morphTagAblation" ]; then
+		echo "Only Gold Morph Tagging"
+		python jPTDP.py --dynet-seed  123456789 \
+						--dynet-mem 1000 \
+						--epochs 30 \
+						--lstmdims 128 \
+						--lstmlayers 2 \
+						--hidden 100 \
+						--wembedding 100 \
+						--cembedding 50 \
+						--membedding 50 \
+						--tembedding 50 \
+						--pembedding 100 \
+						--model "$LANG-$TYPE-trialmodel" \
+						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
+						--outdir ../outdir \
+						--train $UDTRAIN \
+						--dev $UDTEST \
+						--segmentation $DATASET_VARIABLE/metu.tr \
+						--disablemorph \
+						--enable-gold-morphtag \
 						--disablepipeline \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAll" ]; then
@@ -129,6 +177,76 @@ else
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablepipeline \
 						--prevectors $PREVECTORS
+	elif [ $TYPE = "jointAllAblationSeg" ]; then
+		echo "Joint All Tasks"
+		python jPTDP.py --dynet-seed  123456789 \
+						--dynet-mem 1000 \
+						--epochs 30 \
+						--lstmdims 128 \
+						--lstmlayers 2 \
+						--hidden 100 \
+						--wembedding 100 \
+						--cembedding 50 \
+						--membedding 50 \
+						--tembedding 50 \
+						--pembedding 100 \
+						--model "$LANG-$TYPE-trialmodel" \
+						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
+						--outdir ../outdir \
+						--train $UDTRAIN \
+						--dev $UDTEST \
+						--segmentation $DATASET_VARIABLE/metu.tr \
+						--disablepipeline \
+						--enable-gold-morph \
+						--prevectors $PREVECTORS
+	elif [ $TYPE = "jointAllAblationMorphTag" ]; then
+		echo "Joint All Tasks"
+		python jPTDP.py --dynet-seed  123456789 \
+						--dynet-mem 1000 \
+						--epochs 30 \
+						--lstmdims 128 \
+						--lstmlayers 2 \
+						--hidden 100 \
+						--wembedding 100 \
+						--cembedding 50 \
+						--membedding 50 \
+						--tembedding 50 \
+						--pembedding 100 \
+						--model "$LANG-$TYPE-trialmodel" \
+						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
+						--outdir ../outdir \
+						--train $UDTRAIN \
+						--dev $UDTEST \
+						--segmentation $DATASET_VARIABLE/metu.tr \
+						--disablepipeline \
+						--enable-gold-morphtag \
+						--prevectors $PREVECTORS
+	elif [ $TYPE = "jointAllAblationBoth" ]; then
+		echo "Joint All Tasks"
+		python jPTDP.py --dynet-seed  123456789 \
+						--dynet-mem 1000 \
+						--epochs 30 \
+						--lstmdims 128 \
+						--lstmlayers 2 \
+						--hidden 100 \
+						--wembedding 100 \
+						--cembedding 50 \
+						--membedding 50 \
+						--tembedding 50 \
+						--pembedding 100 \
+						--model "$LANG-$TYPE-trialmodel" \
+						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
+						--outdir ../outdir \
+						--train $UDTRAIN \
+						--dev $UDTEST \
+						--segmentation $DATASET_VARIABLE/metu.tr \
+						--disablepipeline \
+						--enable-gold-morphtag \
+						--enable-gold-morph \
+						--prevectors $PREVECTORS						
 	elif [ $TYPE = "base" ]; then
 		echo "Base Dependency Model"
 		python jPTDP.py --dynet-seed  123456789 \

@@ -25,7 +25,9 @@ class jPosDepLearner:
         self.costaugFlag = options.costaugFlag
         self.bibiFlag = options.bibiFlag
         self.morphFlag = options.morphFlag
+        self.goldMorphFlag = options.goldMorphFlag
         self.morphTagFlag = options.morphTagFlag
+        self.goldMorphTagFlag = options.goldMorphTagFlag
         self.lowerCase = options.lowerCase
 
         self.ldims = options.lstm_dims
@@ -633,7 +635,7 @@ class jPosDepLearner:
                     dropFlag = (random.random() < (c / (0.25 + c)))
                     wordvec = self.wlookup[
                         int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
-                    if self.morphTagFlag:
+                    if self.morphTagFlag :
                         entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
                     else:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
@@ -648,6 +650,8 @@ class jPosDepLearner:
                             vec_gold = dynet.vecInput(seg_vec.dim()[0][0])
                             vec_gold.set(entry.idMorphs)
                             segErrs.append(self.binary_crossentropy(seg_vec,vec_gold))
+                            if self.goldMorphTagFlag:
+                                morph_seg = entry.idMorphs
                         else:
                             morph_seg = [entry.norm]
 
@@ -655,7 +659,6 @@ class jPosDepLearner:
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
                         encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
-
                         entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
                     if self.morphTagFlag:
@@ -665,7 +668,8 @@ class jPosDepLearner:
                             self.__getLossMorphTagging(entry.char_rnn_states, entry.idMorphTags, word_context))
                         predicted_sequence = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = predicted_sequence
-
+                        if self.goldMorphTagFlag:
+                            morph_tags = entry.idMorphTags
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
