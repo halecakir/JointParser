@@ -134,7 +134,6 @@ if __name__ == '__main__':
                 if f1_uas_las >= highestScore:
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
                     highestScore = f1_uas_las
-                    eId = epoch + 1
                     print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
                 print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
