@@ -119,7 +119,7 @@ else
 						--tembedding 50 \
 						--pembedding 100 \
 						--model "$LANG-$TYPE-trialmodel" \
-						--params "$TYPE-trialmodel.params" \
+						--params "$LANG-$TYPE-trialmodel.params" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
