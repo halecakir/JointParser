@@ -51,8 +51,8 @@ if [ $PREDICT = "predict" ]; then
 	echo "Predicting..."
     python jPTDP.py  	--dynet-seed  123456789 \
             			--dynet-mem 1000 \--predict \
-				        --model "../outdir/$LANG-$TYPE-trialmodel" \
-				        --params "../outdir/$LANG-$TYPE-trialmodel.params" \
+				        --model "$LANG-$TYPE-trialmodel" \
+				        --params "$LANG-$TYPE-trialmodel.params" \
 				        --outdir ../outdir \
 				        --train $UDTRAIN \
 				        --test $UDTEST \
@@ -76,6 +76,7 @@ else
 						--pembedding 100 \
 						--model "$LANG-$TYPE-trialmodel" \
 						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -98,6 +99,7 @@ else
 						--pembedding 100 \
 						--model "$LANG-$TYPE-trialmodel" \
 						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -120,6 +122,7 @@ else
 						--pembedding 100 \
 						--model "$LANG-$TYPE-trialmodel" \
 						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -141,6 +144,7 @@ else
 						--pembedding 100 \
 						--model "$LANG-$TYPE-trialmodel" \
 						--params "$LANG-$TYPE-trialmodel.params" \
+						--output "$LANG-$TYPE-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \

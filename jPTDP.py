@@ -61,13 +61,15 @@ if __name__ == '__main__':
 
     if options.predictFlag:
         print("PREDICT...")
-        with open(options.params, 'rb') as paramsfp:
+        with open(os.path.join(options.output, options.params), 'rb') as paramsfp:
             words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
         stored_opt.external_embedding = None
+
         print('Loading pre-trained model')
         parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, stored_opt)
-        parser.Load(options.model)
 
+        parser.Load(os.path.join(options.output, options.model))
+        
         testoutpath = os.path.join(options.output, options.conll_test_output)
         print('Predicting POS tags and parsing dependencies')
         with open(testoutpath, 'w') as fh:
@@ -94,16 +96,17 @@ if __name__ == '__main__':
             parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, stored_opt)
             parser.Load(os.path.join(options.output, os.path.basename(options.model)))
             parser.trainer.restart()
+            dev_sentences = []
             if options.conll_dev != "N/A":
                 devPredSents = parser.Predict(options.conll_dev)
-
+                
                 count = 0
                 seg_count = 0
                 segAcc = 0
 
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-
+                    dev_sentences.append(conll_devSent)
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
@@ -112,8 +115,8 @@ if __name__ == '__main__':
                             seg_count += 1
                         count += 1
                 #save predicted sentences
-                save_dependencies(devPredSents, "temp/pred.conllu")
-                evaluation = score(options.conll_dev, "temp/pred.conllu")
+                save_dependencies(dev_sentences, os.path.join("temp", options.conll_test_output))
+                evaluation = score(options.conll_dev, os.path.join("temp", options.conll_test_output))
 
                 las = evaluation["LAS"].f1 * 100 
                 uas = evaluation["UAS"].f1 * 100 
@@ -176,10 +179,10 @@ if __name__ == '__main__':
                 count = 0
                 seg_count = 0
                 segAcc = 0
-
+                dev_sentences = []
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-
+                    dev_sentences.append(conll_devSent)
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
@@ -188,8 +191,8 @@ if __name__ == '__main__':
                             seg_count += 1
                         count += 1
                 #save predicted sentences
-                save_dependencies(devPredSents, "temp/pred.conllu")
-                evaluation = score(options.conll_dev, "temp/pred.conllu")
+                save_dependencies(dev_sentences, os.path.join("temp", options.conll_test_output))
+                evaluation = score(options.conll_dev, os.path.join("temp", options.conll_test_output))
 
                 las = evaluation["LAS"].f1 * 100 
                 uas = evaluation["UAS"].f1 * 100 
