@@ -70,12 +70,6 @@ if __name__ == '__main__':
 
         testoutpath = os.path.join(options.output, options.conll_test_output)
         print('Predicting POS tags and parsing dependencies')
-        #ts = time.time()
-        #test_pred = list(parser.Predict(options.conll_test))
-        #te = time.time()
-        #print 'Finished in', te-ts, 'seconds.'
-        #utils.write_conll(testoutpath, test_pred)
-
         with open(testoutpath, 'w') as fh:
             for sentence in parser.Predict(options.conll_test):
                 for entry in sentence[1:]:

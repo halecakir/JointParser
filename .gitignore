@@ -1,2 +1,5 @@
 *.pyc
 /special
+
+#vscode directory
+**/.vscode
