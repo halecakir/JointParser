@@ -2,7 +2,7 @@
 from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
 import numpy as np
-from utils import conll18_ud_eval as ud_eval
+import evaluation.conll18_ud_eval as ud_eval
 
 
 def save_dependencies(dependencies, path):
