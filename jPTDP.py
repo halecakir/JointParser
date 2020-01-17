@@ -121,7 +121,7 @@ if __name__ == '__main__':
                 las = evaluation["LAS"].f1 * 100 
                 uas = evaluation["UAS"].f1 * 100 
                 upos = evaluation["UPOS"].f1 * 100
-                feats = evaluation["FEATS"].f1 * 100
+                feats = evaluation["UFeats"].f1 * 100
                 f1_uas_las = 2 * ((las * uas)/(uas + las))
                 print("---\nLAS accuracy:\t%.2f" % (las))
                 print("UAS accuracy:\t%.2f" % (uas))
@@ -197,7 +197,7 @@ if __name__ == '__main__':
                 las = evaluation["LAS"].f1 * 100 
                 uas = evaluation["UAS"].f1 * 100 
                 upos = evaluation["UPOS"].f1 * 100
-                feats = evaluation["FEATS"].f1 * 100
+                feats = evaluation["UFeats"].f1 * 100
                 f1_uas_las = 2 * ((las * uas)/(uas + las))
                 print("---\nLAS accuracy:\t%.2f" % (las))
                 print("UAS accuracy:\t%.2f" % (uas))
