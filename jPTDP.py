@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    dev_sentences.append(conll_devSent)
+                    dev_sentences.append(devSent)
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
@@ -182,7 +182,7 @@ if __name__ == '__main__':
                 dev_sentences = []
                 for idSent, devSent in enumerate(devPredSents):
                     conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    dev_sentences.append(conll_devSent)
+                    dev_sentences.append(devSent)
                     for entry in conll_devSent:
                         if entry.id <= 0:
                             continue
