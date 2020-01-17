@@ -178,7 +178,7 @@ else
 						--disablepipeline \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationSeg" ]; then
-		echo "Joint All Tasks"
+		echo "Joint All Tasks with gold morph segs"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
 						--epochs 30 \
@@ -201,7 +201,7 @@ else
 						--enable-gold-morph \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationMorphTag" ]; then
-		echo "Joint All Tasks"
+		echo "Joint All Tasks with gold morph tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
 						--epochs 30 \
@@ -224,7 +224,7 @@ else
 						--enable-gold-morphtag \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationBoth" ]; then
-		echo "Joint All Tasks"
+		echo "Joint All Tasks with gold morphs and tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
 						--epochs 30 \
