@@ -1,8 +1,8 @@
 #!/bin/bash
 
 if [ $# -ne 4 ]; then
-    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE'
-    echo 'Example: sh train.sh jointAll 2.2 predict'
+    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM'
+    echo 'Example: sh train.sh jointAll 2.2 predict 15'
     exit 0
 fi
 
@@ -21,6 +21,7 @@ TYPE=$1
 UDTYPE=$2
 PREDICT=$3
 LANG=$4
+EPOCH=$5
 
 UDTRAIN=""
 UDTEST=""
@@ -65,7 +66,7 @@ else
 		echo "Only Segmentation"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -88,7 +89,7 @@ else
 		echo "Only Gold Segmentation"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -112,7 +113,7 @@ else
 		echo "Only Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -135,7 +136,7 @@ else
 		echo "Only Gold Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -159,7 +160,7 @@ else
 		echo "Joint All Tasks"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -181,7 +182,7 @@ else
 		echo "Joint All Tasks with gold morph segs"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -204,7 +205,7 @@ else
 		echo "Joint All Tasks with gold morph tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -227,7 +228,7 @@ else
 		echo "Joint All Tasks with gold morphs and tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -251,7 +252,7 @@ else
 		echo "Base Dependency Model"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 15 \
+						--epochs $EPOCH \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
