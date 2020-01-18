@@ -226,6 +226,8 @@ def load_embeddings_file(file_name, lower=False, type=None):
             type = "word2vec"
         elif file_type == "vec":
             type = "fasttext"
+        elif file_name == "txt":
+            type = "raw"
         else:
             type = "word2vec"
 
@@ -262,7 +264,17 @@ def load_embeddings_file(file_name, lower=False, type=None):
                     #print("Error converting: {}".format(line))
                     pass
         words = model.keys()
-
+    elif type == "raw":
+        model = {}
+        with open(file_name) as target:
+            for line in target:
+                fields = line.strip().split()
+                vec = [float(x) for x in fields[1:]]
+                word = fields[0]
+                if word not in model:
+                    model[word] = vec
+        words = model.keys()
+        
     if lower:
         vectors = {word.lower(): model[word] for word in words}
     else:

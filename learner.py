@@ -403,12 +403,20 @@ class jPosDepLearner:
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
-                            seg_vec = self.__getSegmentationVector(entry.norm)
-                            morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                            if self.goldMorphFlag:
+                                seg_vec = self.__getSegmentationVector(entry.norm)
+                                seg_vec = dynet.vecInput(seg_vec.dim()[0][0])
+                                seg_vec.set(entry.idMorphs)
+                                morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                                entry.pred_seg = morph_seg
+                            else:
+                                seg_vec = self.__getSegmentationVector(entry.norm)
+                                morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                                entry.pred_seg = seg_vec.vec_value()
                         else:
                             morph_seg = [entry.norm]
+                            entry.pred_seg =  entry.idMorphs
 
-                        entry.pred_seg = seg_vec.vec_value() if len(entry.norm) > 2 else entry.idMorphs
                         entry.seg = entry.idMorphs
 
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
@@ -418,12 +426,17 @@ class jPosDepLearner:
                         entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
 
                     if self.morphTagFlag:
-                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
-                        word_context = [c for i, c in enumerate(sentence_context) if i - 1 != idx]
-                        entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
-                        morph_tags = entry.pred_tags
-                        entry.tags = entry.idMorphTags
-                        entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
+                        if self.goldMorphTagFlag:
+                            morph_tags = entry.idMorphTags
+                            entry.pred_tags = entry.idMorphTags
+                            entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
+                        else:                                                    
+                            word_context = [c for i, c in enumerate(sentence_context) if i - 1 != idx]
+                            entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
+                            morph_tags = entry.pred_tags
+                            entry.tags = entry.idMorphTags
+                            entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
+
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
                         entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
@@ -650,8 +663,6 @@ class jPosDepLearner:
                             vec_gold = dynet.vecInput(seg_vec.dim()[0][0])
                             vec_gold.set(entry.idMorphs)
                             segErrs.append(self.binary_crossentropy(seg_vec,vec_gold))
-                            if self.goldMorphTagFlag:
-                                morph_seg = entry.idMorphs
                         else:
                             morph_seg = [entry.norm]
 
@@ -668,8 +679,6 @@ class jPosDepLearner:
                             self.__getLossMorphTagging(entry.char_rnn_states, entry.idMorphTags, word_context))
                         predicted_sequence = self.generate(entry.char_rnn_states, word_context)
                         morph_tags = predicted_sequence
-                        if self.goldMorphTagFlag:
-                            morph_tags = entry.idMorphTags
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
