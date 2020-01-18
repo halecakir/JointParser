@@ -65,7 +65,7 @@ else
 		echo "Only Segmentation"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -88,7 +88,7 @@ else
 		echo "Only Gold Segmentation"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -112,7 +112,7 @@ else
 		echo "Only Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -135,7 +135,7 @@ else
 		echo "Only Gold Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -159,7 +159,7 @@ else
 		echo "Joint All Tasks"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -181,7 +181,7 @@ else
 		echo "Joint All Tasks with gold morph segs"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -204,7 +204,7 @@ else
 		echo "Joint All Tasks with gold morph tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -227,7 +227,7 @@ else
 		echo "Joint All Tasks with gold morphs and tags"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
@@ -251,7 +251,7 @@ else
 		echo "Base Dependency Model"
 		python jPTDP.py --dynet-seed  123456789 \
 						--dynet-mem 1000 \
-						--epochs 30 \
+						--epochs 15 \
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
