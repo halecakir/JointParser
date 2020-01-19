@@ -1,0 +1,108 @@
+DATASET located in /home/huseyin/Data
+UD_TYPE is 2.2
+Training...
+Base Dependency Model
+TRAIN...
+Training file: /home/huseyin/Data/ud-treebanks-v2.2/UD_Turkish-IMST/tr_imst-ud-train.conllu
+Extracting vocabulary
+Initializing word embeddings by pre-trained vectors
+Vocab size: 12774; #words having pretrained vectors: 12370
+
+-----------------
+Starting epoch 1
+Processing sentence number: 500 , Loss: 0.8970 , Time: 64.19
+Processing sentence number: 1000 , Loss: 0.8595 , Time: 57.15
+Processing sentence number: 1500 , Loss: 0.8425 , Time: 59.19
+Processing sentence number: 2000 , Loss: 0.8144 , Time: 62.25
+Processing sentence number: 2500 , Loss: 0.7772 , Time: 57.80
+Processing sentence number: 3000 , Loss: 0.7366 , Time: 58.25
+Processing sentence number: 3500 , Loss: 0.7281 , Time: 63.31
+Loss: 9.1306
+---
+LAS accuracy:	46.35
+UAS accuracy:	57.51
+POS accuracy:	85.84
+Saved Highest POS&LAS: 51.33 at epoch 1
+Highest POS&LAS: 51.33 at epoch 1
+DATASET located in /home/huseyin/Data
+UD_TYPE is 2.2
+Training...
+Only Morph Tagging
+TRAIN...
+Training file: /home/huseyin/Data/ud-treebanks-v2.2/UD_Turkish-IMST/tr_imst-ud-train.conllu
+Extracting vocabulary
+Initializing word embeddings by pre-trained vectors
+Vocab size: 12774; #words having pretrained vectors: 12370
+
+-----------------
+Starting epoch 1
+Processing sentence number: 500 , Loss: 0.8967 , Time: 94.01
+Processing sentence number: 1000 , Loss: 0.8708 , Time: 91.55
+Processing sentence number: 1500 , Loss: 0.8519 , Time: 91.17
+Processing sentence number: 2000 , Loss: 0.8253 , Time: 100.56
+Processing sentence number: 2500 , Loss: 0.8019 , Time: 93.95
+Processing sentence number: 3000 , Loss: 0.7530 , Time: 85.39
+Processing sentence number: 3500 , Loss: 0.7426 , Time: 88.41
+Loss: 9.2736
+---
+LAS accuracy:	46.07
+UAS accuracy:	57.99
+POS accuracy:	83.78
+TAG accuracy:	49.60
+Saved Highest POS&LAS: 51.35 at epoch 1
+Highest POS&LAS: 51.35 at epoch 1
+DATASET located in /home/huseyin/Data
+UD_TYPE is 2.2
+Training...
+Only Segmentation
+TRAIN...
+Training file: /home/huseyin/Data/ud-treebanks-v2.2/UD_Turkish-IMST/tr_imst-ud-train.conllu
+Extracting vocabulary
+Initializing word embeddings by pre-trained vectors
+Vocab size: 12774; #words having pretrained vectors: 12370
+
+-----------------
+Starting epoch 1
+Processing sentence number: 500 , Loss: 0.8977 , Time: 153.02
+Processing sentence number: 1000 , Loss: 0.8552 , Time: 138.37
+Processing sentence number: 1500 , Loss: 0.8266 , Time: 147.58
+Processing sentence number: 2000 , Loss: 0.8077 , Time: 150.98
+Processing sentence number: 2500 , Loss: 0.7709 , Time: 135.91
+Processing sentence number: 3000 , Loss: 0.7198 , Time: 127.29
+Processing sentence number: 3500 , Loss: 0.7106 , Time: 130.01
+Loss: 9.0274
+---
+LAS accuracy:	47.04
+UAS accuracy:	58.05
+POS accuracy:	85.61
+SEG accuracy:	96.76
+Saved Highest POS&LAS: 51.97 at epoch 1
+Highest POS&LAS: 51.97 at epoch 1
+DATASET located in /home/huseyin/Data
+UD_TYPE is 2.2
+Training...
+Joint All Tasks
+TRAIN...
+Training file: /home/huseyin/Data/ud-treebanks-v2.2/UD_Turkish-IMST/tr_imst-ud-train.conllu
+Extracting vocabulary
+Initializing word embeddings by pre-trained vectors
+Vocab size: 12774; #words having pretrained vectors: 12370
+
+-----------------
+Starting epoch 1
+Processing sentence number: 500 , Loss: 0.8991 , Time: 229.41
+Processing sentence number: 1000 , Loss: 0.8688 , Time: 214.85
+Processing sentence number: 1500 , Loss: 0.8479 , Time: 230.30
+Processing sentence number: 2000 , Loss: 0.8339 , Time: 231.67
+Processing sentence number: 2500 , Loss: 0.8178 , Time: 200.48
+Processing sentence number: 3000 , Loss: 0.7611 , Time: 184.13
+Processing sentence number: 3500 , Loss: 0.7552 , Time: 189.77
+Loss: 9.3385
+---
+LAS accuracy:	43.54
+UAS accuracy:	55.68
+POS accuracy:	84.13
+SEG accuracy:	96.77
+TAG accuracy:	50.81
+Saved Highest POS&LAS: 48.87 at epoch 1
+Highest POS&LAS: 48.87 at epoch 1
