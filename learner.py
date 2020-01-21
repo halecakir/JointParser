@@ -657,12 +657,17 @@ class jPosDepLearner:
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
-                            seg_vec = self.__getSegmentationVector(entry.norm)
-                            morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
-
-                            vec_gold = dynet.vecInput(seg_vec.dim()[0][0])
-                            vec_gold.set(entry.idMorphs)
-                            segErrs.append(self.binary_crossentropy(seg_vec,vec_gold))
+                            if self.goldMorphFlag:
+                                seg_vec = self.__getSegmentationVector(entry.norm)
+                                seg_vec = dynet.vecInput(seg_vec.dim()[0][0])
+                                seg_vec.set(entry.idMorphs)
+                                morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                            else:
+                                seg_vec = self.__getSegmentationVector(entry.norm)
+                                morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                                vec_gold = dynet.vecInput(seg_vec.dim()[0][0])
+                                vec_gold.set(entry.idMorphs)
+                                segErrs.append(self.binary_crossentropy(seg_vec,vec_gold))
                         else:
                             morph_seg = [entry.norm]
 
@@ -673,12 +678,15 @@ class jPosDepLearner:
                         entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
                     if self.morphTagFlag:
-                        #Predict morph tags here and put them into a array as integers (argmaxs) (CURSOR)
-                        word_context = [c for i, c in enumerate(sentence_context) if i-1 != idx]
-                        mTagErrs.append(
-                            self.__getLossMorphTagging(entry.char_rnn_states, entry.idMorphTags, word_context))
-                        predicted_sequence = self.generate(entry.char_rnn_states, word_context)
-                        morph_tags = predicted_sequence
+                        if self.goldMorphTagFlag:	
+                            morph_tags = entry.idMorphTags
+                        else:
+                            word_context = [c for i, c in enumerate(sentence_context) if i-1 != idx]
+                            mTagErrs.append(
+                                self.__getLossMorphTagging(entry.char_rnn_states, entry.idMorphTags, word_context))
+                            predicted_sequence = self.generate(entry.char_rnn_states, word_context)
+                            morph_tags = predicted_sequence
+
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
