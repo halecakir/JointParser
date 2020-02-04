@@ -38,6 +38,8 @@ if __name__ == '__main__':
     parser.add_option("--epochs", type="int", dest="epochs", default=30)
     parser.add_option("--hidden", type="int", dest="hidden_units", default=100)
     #parser.add_option("--lr", type="float", dest="learning_rate", default=None)
+    parser.add_option("--mtag-encoding-composition-type", type="string", dest="mtag_encoding_composition_type", default="None")
+    parser.add_option("--mtag-encoding-composition-alpha", type="float", dest="mtag_encoding_composition_alpha", default=0.5)
     parser.add_option("--outdir", type="string", dest="output", default="results")
     parser.add_option("--activation", type="string", dest="activation", default="tanh")
     parser.add_option("--lstmlayers", type="int", dest="lstm_layers", default=2)

@@ -29,6 +29,8 @@ class jPosDepLearner:
         self.morphTagFlag = options.morphTagFlag
         self.goldMorphTagFlag = options.goldMorphTagFlag
         self.lowerCase = options.lowerCase
+        self.mtag_encoding_composition_type = options.mtag_encoding_composition_type
+        self.mtag_encoding_composition_alpha = options.mtag_encoding_composition_alpha
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
@@ -152,6 +154,9 @@ class jPosDepLearner:
 
             self.mtag_rnn = RNNSequencePredictor(VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
+            if self.mtag_encoding_composition_type != "None":
+                self.mtag_encoding_vertical_composition_w = self.model.add_parameters((self.tdims, 4 * self.tdims))
+                self.mtag_encoding_vertical_composition_b = self.model.add_parameters((self.tdims))
 
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
@@ -391,6 +396,7 @@ class jPosDepLearner:
                         entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
+                prev_encoding_mtag = None
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
@@ -439,7 +445,25 @@ class jPosDepLearner:
 
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
-                        entry.vec = concatenate([entry.vec, last_state_mtag, rev_last_state_mtag])
+
+                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
+                            prev_encoding_mtag = current_encoding_mtag
+                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
+                                + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
+                            prev_encoding_mtag = current_encoding_mtag
+                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
+                                            + self.mtag_encoding_vertical_composition_b
+                            prev_encoding_mtag = current_encoding_mtag
+                        else:
+                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+
+                        entry.vec = concatenate([entry.vec, encoding_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -643,6 +667,7 @@ class jPosDepLearner:
                         entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
+                prev_encoding_mtag = None
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
@@ -691,7 +716,22 @@ class jPosDepLearner:
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
-                        encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
+                            prev_encoding_mtag = current_encoding_mtag
+                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
+                                + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
+                            prev_encoding_mtag = current_encoding_mtag
+                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
+                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
+                                            + self.mtag_encoding_vertical_composition_b
+                            prev_encoding_mtag = current_encoding_mtag
+                        else:
+                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
 
                         entry.vec = concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
 

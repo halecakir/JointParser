@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 5 ]; then
-    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM'
-    echo 'Example: sh train.sh jointAll 2.2 predict 15'
+if [ $# -ne 7 ]; then
+    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MTAG_ALPHA'
+    echo 'Example: sh train.sh jointAll 2.2 predict 15 mlp 0.5'
     exit 0
 fi
 
@@ -22,6 +22,8 @@ UDTYPE=$2
 PREDICT=$3
 LANG=$4
 EPOCH=$5
+MTAG_COMP=$6
+MTAG_ALPHA=$7
 
 UDTRAIN=""
 UDTEST=""
@@ -58,6 +60,8 @@ if [ $PREDICT = "predict" ]; then
 				        --train $UDTRAIN \
 				        --test $UDTEST \
 						--output "$LANG-$TYPE-test.conllu.pred" \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \
 					    --segmentation $DATASET_VARIABLE/metu.tr \
 					    --prevectors $PREVECTORS 
 else
@@ -131,6 +135,8 @@ else
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablemorph \
 						--disablepipeline \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "morphTagAblation" ]; then
 		echo "Only Gold Morph Tagging"
@@ -155,6 +161,8 @@ else
 						--disablemorph \
 						--enable-gold-morphtag \
 						--disablepipeline \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAll" ]; then
 		echo "Joint All Tasks"
@@ -177,6 +185,8 @@ else
 						--dev $UDTEST \
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablepipeline \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationSeg" ]; then
 		echo "Joint All Tasks with gold morph segs"
@@ -200,6 +210,8 @@ else
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablepipeline \
 						--enable-gold-morph \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationMorphTag" ]; then
 		echo "Joint All Tasks with gold morph tags"
@@ -223,6 +235,8 @@ else
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablepipeline \
 						--enable-gold-morphtag \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationBoth" ]; then
 		echo "Joint All Tasks with gold morphs and tags"
@@ -247,6 +261,8 @@ else
 						--disablepipeline \
 						--enable-gold-morphtag \
 						--enable-gold-morph \
+						--mtag-encoding-composition-type $MTAG_COMP \
+						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
 						--prevectors $PREVECTORS						
 	elif [ $TYPE = "base" ]; then
 		echo "Base Dependency Model"
