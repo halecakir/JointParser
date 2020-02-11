@@ -396,7 +396,6 @@ class jPosDepLearner:
                         entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
-                prev_encoding_mtag = None
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
@@ -406,7 +405,8 @@ class jPosDepLearner:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
-
+                
+                for idx, entry in enumerate(conll_sentence):
                     if self.morphFlag:
                         if len(entry.norm) > 2:
                             if self.goldMorphFlag:
@@ -430,7 +430,9 @@ class jPosDepLearner:
                             -1]
 
                         entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
-
+                
+                morphtag_encodings = []
+                for idx, entry in enumerate(conll_sentence):
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:
                             morph_tags = entry.idMorphTags
@@ -445,26 +447,38 @@ class jPosDepLearner:
 
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
+                        current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])  
+                        morphtag_encodings.append(current_encoding_mtag)
 
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
-                                + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
-                                            + self.mtag_encoding_vertical_composition_b
-                            prev_encoding_mtag = current_encoding_mtag
+                if self.morphTagFlag:
+                    forward = []
+                    for idx, encoding in enumerate(morphtag_encodings):
+                        if idx == 0:
+                            forward.append(encoding)
                         else:
-                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            updated = morphtag_encodings[idx-1]*self.mtag_encoding_composition_alpha \
+                                    + encoding*(1-self.mtag_encoding_composition_alpha)
+                            forward.append(updated)
+                    if self.mtag_encoding_composition_type == "w_sum":
+                        upper_morphtag_encodings = forward
+                    elif self.mtag_encoding_composition_type == "bi_w_sum":
+                        backward = []
+                        for idx, r_encoding in enumerate(morphtag_encodings):
+                            if idx == len(morphtag_encodings) - 1:
+                                backward.append(r_encoding)
+                            else:
+                                updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
+                                        + r_encoding*(1-self.mtag_encoding_composition_alpha)
+                                backward.append(updated)
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]    
+                    else:
+                        upper_morphtag_encodings = morphtag_encodings
 
-                        entry.vec = concatenate([entry.vec, encoding_mtag])
+                    for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
+                        entry.vec = concatenate([entry.vec, mtag])
 
+
+                for idx, entry in enumerate(conll_sentence):
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
                     entry.modfov = None
@@ -667,7 +681,6 @@ class jPosDepLearner:
                         entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
-                prev_encoding_mtag = None
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
@@ -680,6 +693,7 @@ class jPosDepLearner:
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
 
+                for idx, entry in enumerate(conll_sentence):
                     if self.morphFlag:
                         if len(entry.norm) > 2:
                             if self.goldMorphFlag:
@@ -702,6 +716,8 @@ class jPosDepLearner:
                         encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
                         entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
+                morphtag_encodings = []
+                for idx, entry in enumerate(conll_sentence):
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:	
                             morph_tags = entry.idMorphTags
@@ -715,26 +731,38 @@ class jPosDepLearner:
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
-                            -1]
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
-                                + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
-                                            + self.mtag_encoding_vertical_composition_b
-                            prev_encoding_mtag = current_encoding_mtag
+                            -1]   
+                        current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])        
+                        morphtag_encodings.append(current_encoding_mtag)
+        
+                if self.morphTagFlag:
+                    forward = []
+                    for idx, encoding in enumerate(morphtag_encodings):
+                        if idx == 0:
+                            forward.append(encoding)
                         else:
-                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            updated = morphtag_encodings[idx-1]*self.mtag_encoding_composition_alpha \
+                                    + encoding*(1-self.mtag_encoding_composition_alpha)
+                            forward.append(updated)
+                    if self.mtag_encoding_composition_type == "w_sum":
+                        upper_morphtag_encodings = forward
+                    elif self.mtag_encoding_composition_type == "bi_w_sum":
+                        backward = []
+                        for idx, r_encoding in enumerate(morphtag_encodings):
+                            if idx == len(morphtag_encodings) - 1:
+                                backward.append(r_encoding)
+                            else:
+                                updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
+                                        + r_encoding*(1-self.mtag_encoding_composition_alpha)
+                                backward.append(updated)
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]    
+                    else:
+                        upper_morphtag_encodings = morphtag_encodings
+                    for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
+                        entry.vec = concatenate([entry.vec, dynet.dropout(mtag, 0.33)])
 
-                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
 
+                for idx, entry in enumerate(conll_sentence):
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
                     entry.modfov = None
