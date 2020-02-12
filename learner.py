@@ -73,7 +73,6 @@ class jPosDepLearner:
 
         self.morph_dims = 2*2*self.mdims if self.morphFlag else 0
         self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
-
         self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
                              VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
         self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
@@ -155,8 +154,10 @@ class jPosDepLearner:
             self.mtag_rnn = RNNSequencePredictor(VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
             if self.mtag_encoding_composition_type != "None":
-                self.mtag_encoding_vertical_composition_w = self.model.add_parameters((self.tdims, 4 * self.tdims))
-                self.mtag_encoding_vertical_composition_b = self.model.add_parameters((self.tdims))
+                self.mtag_encoding_f_w = self.model.add_parameters((2 * self.tdims, 4 * self.tdims))
+                self.mtag_encoding_f_b = self.model.add_parameters((2 * self.tdims))
+                self.mtag_encoding_b_w = self.model.add_parameters((2 * self.tdims, 4 * self.tdims))
+                self.mtag_encoding_b_b = self.model.add_parameters((2 * self.tdims))
 
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
@@ -470,7 +471,24 @@ class jPosDepLearner:
                                 updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
                                         + r_encoding*(1-self.mtag_encoding_composition_alpha)
                                 backward.append(updated)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]    
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
+                    elif  self.mtag_encoding_composition_type == "bi_mlp":
+                        forward = []
+                        backward = []
+                        for idx, encoding in enumerate(morphtag_encodings):
+                            if idx != 0:
+                                f = self.mtag_encoding_f_w * concatenate([encoding, morphtag_encodings[idx-1]]) \
+                                            + self.mtag_encoding_f_b
+                                forward.append(f)
+                            else:
+                                forward.append(encoding)
+                            if idx != len(morphtag_encodings) - 1:
+                                b = self.mtag_encoding_b_w * concatenate([encoding, morphtag_encodings[idx+1]]) \
+                                            + self.mtag_encoding_b_b
+                                backward.append(b)
+                            else:
+                                backward.append(encoding)
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
                     else:
                         upper_morphtag_encodings = morphtag_encodings
 
@@ -755,12 +773,28 @@ class jPosDepLearner:
                                 updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
                                         + r_encoding*(1-self.mtag_encoding_composition_alpha)
                                 backward.append(updated)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]    
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]   
+                    elif  self.mtag_encoding_composition_type == "bi_mlp":
+                        forward = []
+                        backward = []
+                        for idx, encoding in enumerate(morphtag_encodings):
+                            if idx != 0:
+                                f = self.mtag_encoding_f_w * concatenate([encoding, morphtag_encodings[idx-1]]) \
+                                            + self.mtag_encoding_f_b
+                                forward.append(f)
+                            else:
+                                forward.append(encoding)
+                            if idx != len(morphtag_encodings) - 1:
+                                b = self.mtag_encoding_b_w * concatenate([encoding, morphtag_encodings[idx+1]]) \
+                                            + self.mtag_encoding_b_b
+                                backward.append(b)
+                            else:
+                                backward.append(encoding)
+                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
                     else:
                         upper_morphtag_encodings = morphtag_encodings
                     for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
                         entry.vec = concatenate([entry.vec, dynet.dropout(mtag, 0.33)])
-
 
                 for idx, entry in enumerate(conll_sentence):
                     entry.pos_lstms = [entry.vec, entry.vec]
