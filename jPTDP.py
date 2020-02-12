@@ -3,6 +3,7 @@ from optparse import OptionParser
 import pickle, utils, learner, os, os.path, time
 import numpy as np
 import evaluation.conll18_ud_eval as ud_eval
+import matplotlib.pyplot as plt
 
 
 def save_dependencies(dependencies, path):
@@ -89,131 +90,114 @@ if __name__ == '__main__':
         highestScore = 0.0
         eId = 0
 
-        if os.path.isfile(os.path.join(options.output, options.params)) and \
-                os.path.isfile(os.path.join(options.output, os.path.basename(options.model))) :
 
-            print('Found a previous saved model => Loading this model')
-            pretrained_flag = True
-            with open(os.path.join(options.output, options.params), 'rb') as paramsfp:
-                words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, stored_opt = pickle.load(paramsfp)
-            stored_opt.external_embedding = None
-            parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, stored_opt)
-            parser.Load(os.path.join(options.output, os.path.basename(options.model)))
-            parser.trainer.restart()
-            dev_sentences = []
-            if options.conll_dev != "N/A":
-                devPredSents = parser.Predict(options.conll_dev)
-                
-                count = 0
-                seg_count = 0
-                segAcc = 0
+        print('Extracting vocabulary')
+        morph_dict = utils.get_morph_dict(options.segmentation_path, options.lowerCase)
+        words, w2i, c2i, m2i, t2i, pos, rels = utils.vocab(options.conll_train,morph_dict)
 
-                for idSent, devSent in enumerate(devPredSents):
-                    conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    dev_sentences.append(devSent)
-                    for entry in conll_devSent:
-                        if entry.id <= 0:
-                            continue
-                        if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
-                            segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
-                            seg_count += 1
-                        count += 1
-                #save predicted sentences
-                save_dependencies(dev_sentences, os.path.join("temp", options.conll_test_output))
-                evaluation = score(options.conll_dev, os.path.join("temp", options.conll_test_output))
-
-                las = evaluation["LAS"].f1 * 100 
-                uas = evaluation["UAS"].f1 * 100 
-                upos = evaluation["UPOS"].f1 * 100
-                feats = evaluation["UFeats"].f1 * 100
-                f1_uas_las = 2 * ((las * uas)/(uas + las))
-                print("---\nLAS accuracy:\t%.2f" % (las))
-                print("UAS accuracy:\t%.2f" % (uas))
-                print("POS accuracy:\t%.2f" % (upos))
-                if options.morphFlag:
-                    print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
-                if options.morphTagFlag:
-                    print("TAG accuracy:\t%.2f" % (feats))
-
-                if f1_uas_las >= highestScore:
-                    parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-                    highestScore = f1_uas_las
-                    print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
-
-                print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
-
-        else:
-            print('Extracting vocabulary')
-            morph_dict = utils.get_morph_dict(options.segmentation_path, options.lowerCase)
-            words, w2i, c2i, m2i, t2i, pos, rels = utils.vocab(options.conll_train,morph_dict)
-
-            with open(os.path.join(options.output, options.params), 'wb') as paramsfp:
-                pickle.dump((words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, options), paramsfp)
-
+        with open(os.path.join(options.output, options.params), 'wb') as paramsfp:
+            pickle.dump((words, w2i, c2i, m2i, t2i, morph_dict, pos, rels, options), paramsfp)
+        all_highest = []
+        contributions = []
+        for contribution in np.arange(0, 1, 0.05):
+            contributions.append(contribution)
+            highest = {"las":0, "uas":0, "pos":0, "feats":0, "seg":0}
+            options.mtag_encoding_composition_alpha = contribution
             #print 'Initializing joint model'
             parser = learner.jPosDepLearner(words, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options)
 
-        if options.pipeline and options.morphFlag and not pretrained_flag:
-            for epoch in range(5):
-                print('\n-----------------\nStarting Morph2Vec epoch', epoch + 1)
-                parser.Train_Morph()
+            if options.pipeline and options.morphFlag and not pretrained_flag:
+                for epoch in range(5):
+                    print('\n-----------------\nStarting Morph2Vec epoch', epoch + 1)
+                    parser.Train_Morph()
 
-            parser.initialize()
+                parser.initialize()
 
-        for epoch in range(options.epochs):
-            print('\n-----------------\nStarting epoch', epoch + 1)
+            for epoch in range(options.epochs):
+                print('\n-----------------\nStarting epoch', epoch + 1)
 
-            if epoch % 10 == 0:
-                if epoch == 0:
-                    parser.trainer.restart(learning_rate=0.001)
-                elif epoch == 10:
-                    parser.trainer.restart(learning_rate=0.0005)
-                else:
-                    parser.trainer.restart(learning_rate=0.00025)
+                if epoch % 10 == 0:
+                    if epoch == 0:
+                        parser.trainer.restart(learning_rate=0.001)
+                    elif epoch == 10:
+                        parser.trainer.restart(learning_rate=0.0005)
+                    else:
+                        parser.trainer.restart(learning_rate=0.00025)
 
-            parser.Train(options.conll_train)
+                parser.Train(options.conll_train)
 
-            if options.conll_dev == "N/A":
-                parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-
-            else:
-                devPredSents = parser.Predict(options.conll_dev)
-
-                count = 0
-                seg_count = 0
-                segAcc = 0
-                dev_sentences = []
-                for idSent, devSent in enumerate(devPredSents):
-                    conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
-                    dev_sentences.append(devSent)
-                    for entry in conll_devSent:
-                        if entry.id <= 0:
-                            continue
-                        if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
-                            segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
-                            seg_count += 1
-                        count += 1
-                #save predicted sentences
-                save_dependencies(dev_sentences, os.path.join("temp", options.conll_test_output))
-                evaluation = score(options.conll_dev, os.path.join("temp", options.conll_test_output))
-
-                las = evaluation["LAS"].f1 * 100 
-                uas = evaluation["UAS"].f1 * 100 
-                upos = evaluation["UPOS"].f1 * 100
-                feats = evaluation["UFeats"].f1 * 100
-                f1_uas_las = 2 * ((las * uas)/(uas + las))
-                print("---\nLAS accuracy:\t%.2f" % (las))
-                print("UAS accuracy:\t%.2f" % (uas))
-                print("POS accuracy:\t%.2f" % (upos))
-                if options.morphFlag:
-                    print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
-                if options.morphTagFlag:
-                    print("TAG accuracy:\t%.2f" % (feats))
-
-                if f1_uas_las >= highestScore:
+                if options.conll_dev == "N/A":
                     parser.Save(os.path.join(options.output, os.path.basename(options.model)))
-                    highestScore = f1_uas_las
-                    eId = epoch + 1
-                    print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
 
-                print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
+                else:
+                    devPredSents = parser.Predict(options.conll_dev)
+
+                    count = 0
+                    seg_count = 0
+                    segAcc = 0
+                    dev_sentences = []
+                    for idSent, devSent in enumerate(devPredSents):
+                        conll_devSent = [entry for entry in devSent if isinstance(entry, utils.ConllEntry)]
+                        dev_sentences.append(devSent)
+                        for entry in conll_devSent:
+                            if entry.id <= 0:
+                                continue
+                            if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                                segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
+                                seg_count += 1
+                            count += 1
+                    #save predicted sentences
+                    save_dependencies(dev_sentences, os.path.join("temp", options.conll_test_output))
+                    evaluation = score(options.conll_dev, os.path.join("temp", options.conll_test_output))
+
+                    las = evaluation["LAS"].f1 * 100 
+                    uas = evaluation["UAS"].f1 * 100 
+                    upos = evaluation["UPOS"].f1 * 100
+                    feats = evaluation["UFeats"].f1 * 100
+                    f1_uas_las = 2 * ((las * uas)/(uas + las))
+                    print("---\nLAS accuracy:\t%.2f" % (las))
+                    print("UAS accuracy:\t%.2f" % (uas))
+                    print("POS accuracy:\t%.2f" % (upos))
+                    if options.morphFlag:
+                        print("SEG accuracy:\t%.2f" % (float(segAcc) * 100 / seg_count))
+                    if options.morphTagFlag:
+                        print("TAG accuracy:\t%.2f" % (feats))
+
+                    if f1_uas_las >= highestScore:
+                        parser.Save(os.path.join(options.output, os.path.basename(options.model)))
+                        highest["las"] = las
+                        highest["uas"] = uas
+                        highest["pos"] = upos
+                        highest["feats"] = feats
+                        highest["seg"] = (float(segAcc) * 100 / seg_count)
+                        highestScore = f1_uas_las
+                        eId = epoch + 1
+                        print("Saved Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
+
+                    print("Highest POS&LAS: %.2f at epoch %d" % (highestScore, eId))
+
+            all_highest.append(highest)
+
+        
+        
+        
+        las = [highest["las"] for highest in all_highest]
+        uas = [highest["uas"] for highest in all_highest]
+
+        feats = [highest["feats"] for highest in all_highest]
+        pos = [highest["pos"] for highest in all_highest]
+
+        seg = [highest["seg"] for highest in all_highest]
+
+        fig, ax = plt.subplots()
+        ax.plot(contributions, las,  label="LAS")
+        ax.plot(contributions, uas, label="UAS")
+        ax.plot(contributions, pos, label="POS")
+        ax.plot(contributions, feats, label="FEATS")
+        ax.plot(contributions, seg, label="SEG")
+
+        ax.set(xlabel='Contribution', ylabel='Score')
+        leg = ax.legend(loc='upper right', shadow=True, fancybox=True)
+        leg.get_frame().set_alpha(0.5)
+        ax.grid()
+        fig.savefig("{}.png".format("scores"))
