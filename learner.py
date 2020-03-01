@@ -30,7 +30,8 @@ class jPosDepLearner:
         self.goldMorphTagFlag = options.goldMorphTagFlag
         self.lowerCase = options.lowerCase
         self.mtag_encoding_composition_type = options.mtag_encoding_composition_type
-        self.mtag_encoding_composition_alpha = options.mtag_encoding_composition_alpha
+        self.morph_encoding_composition_type = options.morph_encoding_composition_type
+        self.pos_encoding_composition_type = options.pos_encoding_composition_type
 
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
@@ -153,11 +154,19 @@ class jPosDepLearner:
 
             self.mtag_rnn = RNNSequencePredictor(VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
-            if self.mtag_encoding_composition_type != "None":
-                self.mtag_encoding_f_w = self.model.add_parameters((2 * self.tdims, 4 * self.tdims))
-                self.mtag_encoding_f_b = self.model.add_parameters((2 * self.tdims))
-                self.mtag_encoding_b_w = self.model.add_parameters((2 * self.tdims, 4 * self.tdims))
-                self.mtag_encoding_b_b = self.model.add_parameters((2 * self.tdims))
+
+        if self.mtag_encoding_composition_type != "None":
+            self.mtag_composition_w = self.model.add_parameters((self.tagging_attention_size, 2 * self.tdims))
+            self.mtag_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.mtag_composition_context = self.model.add_parameters(self.tagging_attention_size)
+        if self.morph_encoding_composition_type != "None":
+            self.morph_composition_w = self.model.add_parameters((self.tagging_attention_size, self.mdims*4))
+            self.morph_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.morph_composition_context = self.model.add_parameters(self.tagging_attention_size)
+        if self.pos_encoding_composition_type != "None":
+            self.pos_composition_w = self.model.add_parameters((self.tagging_attention_size, self.pdims))
+            self.pos_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.pos_composition_context = self.model.add_parameters(self.tagging_attention_size)
 
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
@@ -381,6 +390,37 @@ class jPosDepLearner:
     def Load(self, filename):
         self.model.populate(filename)
 
+    def attend_encodings(self, encoded_sequence, encoding_type):
+        if encoding_type == self.mtag_encoding_composition_type:
+            w = self.mtag_composition_w 
+            b = self.mtag_composition_b
+            c = self.mtag_composition_context
+        elif encoding_type == self.morph_encoding_composition_type:
+            w = self.morph_composition_w 
+            b = self.morph_composition_b
+            c = self.morph_composition_context
+        elif encoding_type == self.pos_encoding_composition_type:
+            w = self.pos_composition_w 
+            b = self.pos_composition_b
+            c = self.pos_composition_context
+
+        att_mlp_outputs = []
+        for e in encoded_sequence:
+            mlp_out = (w * e) + b
+            att_mlp_outputs.append(mlp_out)
+
+        lst = []
+        for o in att_mlp_outputs:
+            lst.append(exp(sum_elems(cmult(o, c))))
+
+        sum_all = esum(lst)
+
+        probs = [cdiv(e, sum_all) for e in lst]
+        att_context = esum(
+            [cmult(p, h) for p, h in zip(probs, encoded_sequence)]
+        )
+        return att_context
+
     def Predict(self, conll_path):
         with open(conll_path, 'r') as conllFP:
             for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict)):
@@ -407,6 +447,7 @@ class jPosDepLearner:
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
                 
+                morph_encodings = []
                 for idx, entry in enumerate(conll_sentence):
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -429,8 +470,24 @@ class jPosDepLearner:
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
+                        encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
+                        morph_encodings.append(encoding_morph)
 
-                        entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
+                if self.morphFlag:
+                    upper_morph_encodings = []
+                    if self.morph_encoding_composition_type == "morph_attention":
+                        for idx, encoding in enumerate(morph_encodings):
+                            tmp = []
+                            if idx - 1 > 0:
+                                tmp.append(morph_encodings[idx-1])
+                            tmp.append(encoding) 
+                            if idx+1 < len(morph_encodings):
+                                tmp.append(morph_encodings[idx+1])
+                            upper_morph_encodings.append(self.attend_encodings(tmp, self.morph_encoding_composition_type))
+                    else:
+                        upper_morph_encodings = morph_encodings
+                    for entry, morph in zip(conll_sentence, upper_morph_encodings):
+                        entry.vec = concatenate([entry.vec, morph])
                 
                 morphtag_encodings = []
                 for idx, entry in enumerate(conll_sentence):
@@ -451,44 +508,17 @@ class jPosDepLearner:
                         current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])  
                         morphtag_encodings.append(current_encoding_mtag)
 
-                if self.morphTagFlag:
-                    forward = []
-                    for idx, encoding in enumerate(morphtag_encodings):
-                        if idx == 0:
-                            forward.append(encoding)
-                        else:
-                            updated = morphtag_encodings[idx-1]*self.mtag_encoding_composition_alpha \
-                                    + encoding*(1-self.mtag_encoding_composition_alpha)
-                            forward.append(updated)
-                    if self.mtag_encoding_composition_type == "w_sum":
-                        upper_morphtag_encodings = forward
-                    elif self.mtag_encoding_composition_type == "bi_w_sum":
-                        backward = []
-                        for idx, r_encoding in enumerate(morphtag_encodings):
-                            if idx == len(morphtag_encodings) - 1:
-                                backward.append(r_encoding)
-                            else:
-                                updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
-                                        + r_encoding*(1-self.mtag_encoding_composition_alpha)
-                                backward.append(updated)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
-                    elif  self.mtag_encoding_composition_type == "bi_mlp":
-                        forward = []
-                        backward = []
+                if self.morphTagFlag:  
+                    upper_morphtag_encodings = []
+                    if self.mtag_encoding_composition_type == "mtag_attention":
                         for idx, encoding in enumerate(morphtag_encodings):
-                            if idx != 0:
-                                f = self.mtag_encoding_f_w * concatenate([encoding, morphtag_encodings[idx-1]]) \
-                                            + self.mtag_encoding_f_b
-                                forward.append(f)
-                            else:
-                                forward.append(encoding)
-                            if idx != len(morphtag_encodings) - 1:
-                                b = self.mtag_encoding_b_w * concatenate([encoding, morphtag_encodings[idx+1]]) \
-                                            + self.mtag_encoding_b_b
-                                backward.append(b)
-                            else:
-                                backward.append(encoding)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
+                            tmp = []
+                            if idx - 1 > 0:
+                                tmp.append(morphtag_encodings[idx-1])
+                            tmp.append(encoding) 
+                            if idx+1 < len(morphtag_encodings):
+                                tmp.append(morphtag_encodings[idx+1])
+                            upper_morphtag_encodings.append(self.attend_encodings(tmp, self.mtag_encoding_composition_type))
                     else:
                         upper_morphtag_encodings = morphtag_encodings
 
@@ -531,11 +561,30 @@ class jPosDepLearner:
                 predicted_pos_indices = [np.argmax(o.value()) for o in outputFFlayer]
                 predicted_postags = [self.id2pos[idx] for idx in predicted_pos_indices]
 
+                pos_encodings = []
+                for entry, posid in zip(conll_sentence, predicted_pos_indices):
+                    pos_encodings.append(self.plookup[posid])
+                upper_pos_encodings = []
+                if self.pos_encoding_composition_type == "pos_attention":
+                    for idx, encoding in enumerate(pos_encodings):
+                        tmp = []
+                        if idx - 1 > 0:
+                            tmp.append(pos_encodings[idx-1])
+                        tmp.append(encoding) 
+                        if idx+1 < len(pos_encodings):
+                            tmp.append(pos_encodings[idx+1])
+                        upper_pos_encodings.append(self.attend_encodings(tmp, self.pos_encoding_composition_type))
+                else:
+                    upper_pos_encodings = pos_encodings
+                for entry, pos in zip(conll_sentence, upper_pos_encodings):
+                    entry.vec = concatenate([entry.vec, pos])
+                    entry.lstms = [entry.vec, entry.vec]
+                """
                 # Add predicted pos tags for parsing prediction
                 for entry, posid in zip(conll_sentence, predicted_pos_indices):
                     entry.vec = concatenate([entry.vec, self.plookup[posid]])
                     entry.lstms = [entry.vec, entry.vec]
-
+                """
                 if self.blstmFlag:
                     lstm_forward = self.builders[0].initial_state()
                     lstm_backward = self.builders[1].initial_state()
@@ -710,7 +759,8 @@ class jPosDepLearner:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
-
+                
+                morph_encodings = []
                 for idx, entry in enumerate(conll_sentence):
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -732,7 +782,24 @@ class jPosDepLearner:
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
                         encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
-                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
+                        morph_encodings.append(encoding_morph)
+                
+                if self.morphFlag:
+                    upper_morph_encodings = []
+                    if self.morph_encoding_composition_type == "morph_attention":
+                        for idx, encoding in enumerate(morph_encodings):
+                            tmp = []
+                            if idx - 1 > 0:
+                                tmp.append(morph_encodings[idx-1])
+                            tmp.append(encoding) 
+                            if idx+1 < len(morph_encodings):
+                                tmp.append(morph_encodings[idx+1])
+                            upper_morph_encodings.append(self.attend_encodings(tmp, self.morph_encoding_composition_type))
+                    else:
+                        upper_morph_encodings = morph_encodings
+                    for entry, morph in zip(conll_sentence, upper_morph_encodings):
+                        entry.vec = concatenate([entry.vec, dynet.dropout(morph, 0.33)])
+
 
                 morphtag_encodings = []
                 for idx, entry in enumerate(conll_sentence):
@@ -754,43 +821,16 @@ class jPosDepLearner:
                         morphtag_encodings.append(current_encoding_mtag)
         
                 if self.morphTagFlag:
-                    forward = []
-                    for idx, encoding in enumerate(morphtag_encodings):
-                        if idx == 0:
-                            forward.append(encoding)
-                        else:
-                            updated = morphtag_encodings[idx-1]*self.mtag_encoding_composition_alpha \
-                                    + encoding*(1-self.mtag_encoding_composition_alpha)
-                            forward.append(updated)
-                    if self.mtag_encoding_composition_type == "w_sum":
-                        upper_morphtag_encodings = forward
-                    elif self.mtag_encoding_composition_type == "bi_w_sum":
-                        backward = []
-                        for idx, r_encoding in enumerate(morphtag_encodings):
-                            if idx == len(morphtag_encodings) - 1:
-                                backward.append(r_encoding)
-                            else:
-                                updated = morphtag_encodings[idx+1]*self.mtag_encoding_composition_alpha \
-                                        + r_encoding*(1-self.mtag_encoding_composition_alpha)
-                                backward.append(updated)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]   
-                    elif  self.mtag_encoding_composition_type == "bi_mlp":
-                        forward = []
-                        backward = []
+                    upper_morphtag_encodings = []
+                    if self.mtag_encoding_composition_type == "mtag_attention":
                         for idx, encoding in enumerate(morphtag_encodings):
-                            if idx != 0:
-                                f = self.mtag_encoding_f_w * concatenate([encoding, morphtag_encodings[idx-1]]) \
-                                            + self.mtag_encoding_f_b
-                                forward.append(f)
-                            else:
-                                forward.append(encoding)
-                            if idx != len(morphtag_encodings) - 1:
-                                b = self.mtag_encoding_b_w * concatenate([encoding, morphtag_encodings[idx+1]]) \
-                                            + self.mtag_encoding_b_b
-                                backward.append(b)
-                            else:
-                                backward.append(encoding)
-                        upper_morphtag_encodings = [f+b for f,b in zip(forward, backward)]
+                            tmp = []
+                            if idx - 1 > 0:
+                                tmp.append(morphtag_encodings[idx-1])
+                            tmp.append(encoding) 
+                            if idx+1 < len(morphtag_encodings):
+                                tmp.append(morphtag_encodings[idx+1])
+                            upper_morphtag_encodings.append(self.attend_encodings(tmp, self.mtag_encoding_composition_type))
                     else:
                         upper_morphtag_encodings = morphtag_encodings
                     for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
@@ -832,11 +872,30 @@ class jPosDepLearner:
                 for pred, gold in zip(outputFFlayer, posIDs):
                     posErrs.append(self.pick_neg_log(pred, gold))
 
+                pos_encodings = []
+                for entry, poses in zip(conll_sentence, outputFFlayer):
+                    pos_encodings.append(self.plookup[np.argmax(poses.value())])
+                upper_pos_encodings = []
+                if self.pos_encoding_composition_type == "pos_attention":
+                    for idx, encoding in enumerate(pos_encodings):
+                        tmp = []
+                        if idx - 1 > 0:
+                            tmp.append(pos_encodings[idx-1])
+                        tmp.append(encoding) 
+                        if idx+1 < len(pos_encodings):
+                            tmp.append(pos_encodings[idx+1])
+                        upper_pos_encodings.append(self.attend_encodings(tmp, self.pos_encoding_composition_type))
+                else:
+                    upper_pos_encodings = pos_encodings
+                for entry, pos in zip(conll_sentence, upper_pos_encodings):
+                    entry.vec = concatenate([entry.vec, dynet.dropout(pos, 0.33)])
+                    entry.lstms = [entry.vec, entry.vec]
+                """
                 # Add predicted pos tags
                 for entry, poses in zip(conll_sentence, outputFFlayer):
                     entry.vec = concatenate([entry.vec, dynet.dropout(self.plookup[np.argmax(poses.value())], 0.33)])
                     entry.lstms = [entry.vec, entry.vec]
-
+                """
                 #Parsing losses
                 if self.blstmFlag:
                     lstm_forward = self.builders[0].initial_state()
