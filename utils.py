@@ -1,3 +1,6 @@
+import torch
+from transformers import BertModel, BertTokenizer
+
 # coding=utf-8
 from collections import Counter
 import os, re, codecs
@@ -7,6 +10,8 @@ import pickle
 import numpy as np
 import random
 
+tokenizer = BertTokenizer.from_pretrained('dbmdz/bert-base-turkish-cased')
+model = BertModel.from_pretrained('dbmdz/bert-base-turkish-cased')
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -33,6 +38,7 @@ class ConllEntry:
         self.idMorphTags = []
         self.decoder_gold_input = []
 
+        self.embedding = None
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, "|".join(self.pred_tags_tokens[1:-1]) if self.pred_tags_tokens is not None else self.feats,
                   str(self.pred_parent_id) if self.pred_parent_id is not None else None, self.pred_relation, self.deps,
@@ -123,6 +129,30 @@ def vocab(conll_path,morph_dict):
     return (wordsCount, {w: i for i, w in enumerate(list(wordsCount.keys()))}, c2i, m2i, t2i, list(posCount.keys()), list(relCount.keys()))
 
 
+def get_token_with_embeddings(tokens):
+    raw_sentence = " ".join([t.form for t in tokens[1:]])
+    raw_sentence = raw_sentence.strip()
+    pieces = tokenizer.tokenize(raw_sentence)
+    input_ids = torch.tensor([tokenizer.encode(raw_sentence)])
+    token_indexes = []
+    for index, token in enumerate(pieces):
+        if not token.startswith("##"):
+            token_indexes.append([])
+        token_indexes[-1].append(index)
+    features = model(input_ids)[0]
+    embeddings = []
+    for t_i in token_indexes:
+        token_feats =  []
+        for i in t_i:
+            token_feats.append(features[0][i])
+        embedding = torch.max(torch.stack(token_feats), 0)[0].detach().numpy()
+        embeddings.append(embedding)
+    for token, embedding in zip(tokens[1:], embeddings):
+        token.embedding = embedding
+
+    tokens[0].embedding = np.zeros(768)
+    return tokens
+
 def read_conll(fh, c2i, m2i, t2i, morph_dict):
     # Character vocabulary
     root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
@@ -134,7 +164,8 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
     for line in fh:
         tok = line.strip().split('\t')
         if not tok or line.strip() == '':
-            if len(tokens) > 1: yield tokens
+            if len(tokens) > 1: 
+                yield get_token_with_embeddings(tokens)
             tokens = [root]
         else:
             if line[0] == '#' or '-' in tok[0] or '.' in tok[0]:
@@ -188,7 +219,28 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
                 tokens.append(entry)
 
     if len(tokens) > 1:
-        yield tokens
+        raw_sentence = " ".join([t.form for t in tokens[1:]])
+        raw_sentence = raw_sentence.strip()
+        pieces = tokenizer.tokenize(raw_sentence)
+        input_ids = torch.tensor([tokenizer.encode(raw_sentence)])
+        token_indexes = []
+        for index, token in enumerate(pieces):
+            if not token.startswith("##"):
+                token_indexes.append([])
+            token_indexes[-1].append(index)
+        features = model(input_ids)[0]
+        embeddings = []
+        for t_i in token_indexes:
+            token_feats =  []
+            for i in t_i:
+                token_feats.append(features[0][i])
+            embedding = torch.max(torch.stack(token_feats), 0)[0].detach().numpy()
+            embeddings.append(embedding)
+        for token, embedding in zip(tokens[1:], embeddings):
+            token.embedding = embedding
+
+        tokens[0].embedding = np.zeros(768)
+        yield get_token_with_embeddings(tokens)
 
 
 def write_conll(fn, conll_gen):

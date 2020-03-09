@@ -60,8 +60,9 @@ class jPosDepLearner:
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
         self.ext_embeddings = None
 
-        if options.external_embedding is not None:
-            ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
+        if options.external_embedding != "NONE":
+            ext_embeddings, ext_emb_dim = {}, 100
+            #load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
             assert (ext_emb_dim == self.wdims)
             print("Initializing word embeddings by pre-trained vectors")
             count = 0
@@ -438,8 +439,8 @@ class jPosDepLearner:
                         sentence_context.append(entry.char_rnn_states[-1])
 
                 for idx, entry in enumerate(conll_sentence):
-                    wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
-
+                    #wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
+                    wordvec = inputTensor(entry.embedding)
                     if self.morphTagFlag:
                         entry.vec = concatenate([wordvec, entry.char_rnn_states[-1]])
                     else:
@@ -751,8 +752,11 @@ class jPosDepLearner:
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
-                    wordvec = self.wlookup[
-                        int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
+                    #wordvec = self.wlookup[
+                    #    int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
+                    
+                    wordvec = inputTensor(entry.embedding)
+
                     if self.morphTagFlag :
                         entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
                     else:

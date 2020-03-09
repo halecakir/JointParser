@@ -36,19 +36,23 @@ echo "UD_TYPE is $UDTYPE"
 if [ $LANG = "Turkish" ]; then
 	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-train.conllu"
 	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-test.conllu"
-	PREVECTORS="$DATASET_VARIABLE/$LANG/tr.vectors.xz"
+	#PREVECTORS="$DATASET_VARIABLE/$LANG/tr.vectors.xz"
+	PREVECTORS="NONE"
 elif [ $LANG = "Finnish" ]; then
 	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-train.conllu"
 	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-test.conllu"
-	PREVECTORS="$DATASET_VARIABLE/$LANG/fi.vectors.xz"
+	#PREVECTORS="$DATASET_VARIABLE/$LANG/fi.vectors.xz"
+	PREVECTORS="NONE"
 elif [ $LANG = "Hungarian" ]; then
 	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-train.conllu"
 	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-test.conllu"
-	PREVECTORS="$DATASET_VARIABLE/$LANG/hu.vectors.xz"
+	#PREVECTORS="$DATASET_VARIABLE/$LANG/hu.vectors.xz"
+	PREVECTORS="NONE"
 elif [ $LANG = "Czech" ]; then
 	UDTRAIN="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-train.conllu"
 	UDTEST="$DATASET_VARIABLE/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-test.conllu"
-	PREVECTORS="$DATASET_VARIABLE/$LANG/cs.vectors.xz"
+	#PREVECTORS="$DATASET_VARIABLE/$LANG/cs.vectors.xz"
+	PREVECTORS="NONE"
 fi
 
 if [ $PREDICT = "predict" ]; then
@@ -76,7 +80,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -99,7 +103,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -123,7 +127,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -149,7 +153,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -176,7 +180,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -201,7 +205,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -227,7 +231,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -253,7 +257,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
@@ -280,7 +284,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
