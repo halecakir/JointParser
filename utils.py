@@ -130,7 +130,7 @@ def vocab(conll_path,morph_dict):
 
 
 def get_token_with_embeddings(tokens):
-    raw_sentence = " ".join([t.form for t in tokens[1:]])
+    raw_sentence = " ".join([t.form for t in tokens[1:] if isinstance(t, ConllEntry)])
     raw_sentence = raw_sentence.strip()
     pieces = tokenizer.tokenize(raw_sentence)
     input_ids = torch.tensor([tokenizer.encode(raw_sentence)])
