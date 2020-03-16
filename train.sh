@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 8 ]; then
-    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MORPH_COMP MTAG_COMP POS_COMP'
-    echo 'Example: sh train.sh jointAll 2.2 train Turkish 30 morph_attention mtag_attention pos_attention'
+if [ $# -ne 11 ]; then
+    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MORPH_COMP MTAG_COMP POS_COMP WSUM_POS WSUM_MTAG WSUM_MORPH'
+    echo 'Example: sh train.sh jointAll 2.2 train Turkish 30 morph_attention mtag_attention pos_attention 0 0 0'
     exit 0
 fi
 
@@ -25,6 +25,9 @@ EPOCH=$5
 MORPH_COMP=$6
 MTAG_COMP=$7
 POS_COMP=$8
+WSUM_POS=$9
+WSUM_MTAG=${10}
+WSUM_MORPH=${11}
 
 UDTRAIN=""
 UDTEST=""
@@ -69,7 +72,10 @@ if [ $PREDICT = "predict" ]; then
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \
 					    --segmentation $DATASET_VARIABLE/metu.tr \
-					    --prevectors $PREVECTORS 
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
 else
 	echo "Training..."
     if [ $TYPE = "seg" ]; then
@@ -94,7 +100,11 @@ else
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablemorphtag \
 						--disablepipeline \
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+						
     elif [ $TYPE = "segAblation" ]; then
 		echo "Only Gold Segmentation"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -118,7 +128,11 @@ else
 						--enable-gold-morph \
 						--disablemorphtag \
 						--disablepipeline \
-						--prevectors $PREVECTORS						
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "morphTag" ]; then
 		echo "Only Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -144,7 +158,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "morphTagAblation" ]; then
 		echo "Only Gold Morph Tagging"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -171,7 +189,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "jointAll" ]; then
 		echo "Joint All Tasks"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -196,7 +218,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "jointAllAblationSeg" ]; then
 		echo "Joint All Tasks with gold morph segs"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -222,7 +248,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \					
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "jointAllAblationMorphTag" ]; then
 		echo "Joint All Tasks with gold morph tags"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -248,7 +278,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \					
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "jointAllAblationBoth" ]; then
 		echo "Joint All Tasks with gold morphs and tags"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -275,7 +309,11 @@ else
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--pos-encoding-composition-type $POS_COMP \					
-						--prevectors $PREVECTORS						
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
+
 	elif [ $TYPE = "base" ]; then
 		echo "Base Dependency Model"
 		python jPTDP.py --dynet-seed  123456789 \
@@ -299,7 +337,10 @@ else
 						--disablemorph \
 						--disablepipeline \
 						--disablemorphtag \
-						--prevectors $PREVECTORS
+					    --prevectors $PREVECTORS \
+						--pos-wsum-composition-alpha $WSUM_POS \  
+						--mtag-wsum-composition-alpha $WSUM_MTAG \  
+						--morph-wsum-composition-alpha $WSUM_MORPH   
 	else
 	   echo "Invalid Experiment Type"
 	   echo "Valid types: seg, morphTag, jointAll, and base" 

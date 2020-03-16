@@ -59,6 +59,11 @@ if __name__ == '__main__':
     parser.add_option("--disablelower", action="store_false", dest="lowerCase", default=True)
     parser.add_option("--dynet-seed", type="int", dest="seed", default=0)
     parser.add_option("--dynet-mem", type="int", dest="mem", default=0)
+    parser.add_option("--pos-wsum-composition-alpha", type="float", dest="pos_wsum_composition_alpha", default=0.5)
+    parser.add_option("--mtag-wsum-composition-alpha", type="float", dest="mtag_wsum_composition_alpha", default=0.5)
+    parser.add_option("--morph-wsum-composition-alpha", type="float", dest="morph_wsum_composition_alpha", default=0.5)
+
+
 
     (options, args) = parser.parse_args()
 

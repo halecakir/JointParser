@@ -33,6 +33,10 @@ class jPosDepLearner:
         self.morph_encoding_composition_type = options.morph_encoding_composition_type
         self.pos_encoding_composition_type = options.pos_encoding_composition_type
 
+        self.pos_wsum_composition_alpha = options.pos_wsum_composition_alpha
+        self.mtag_wsum_composition_alpha = options.mtag_wsum_composition_alpha
+        self.morph_wsum_composition_alpha = options.morph_wsum_composition_alpha
+
         self.ldims = options.lstm_dims
         self.wdims = options.wembedding_dims
         self.mdims = options.membedding_dims
@@ -487,6 +491,14 @@ class jPosDepLearner:
                             upper_morph_encodings.append(self.attend_encodings(tmp, self.morph_encoding_composition_type))
                     else:
                         upper_morph_encodings = morph_encodings
+
+                    if self.morph_wsum_composition_alpha != 0:
+                        for index, _ in enumerate(upper_morph_encodings):
+                            if index > 0:
+                                upper_morph_encodings [index] = \
+                                    self.morph_wsum_composition_alpha * upper_morph_encodings[index-1] + \
+                                    (1 - self.morph_wsum_composition_alpha) * upper_morph_encodings[index]
+                                    
                     for entry, morph in zip(conll_sentence, upper_morph_encodings):
                         entry.vec = concatenate([entry.vec, morph])
                 
@@ -522,6 +534,13 @@ class jPosDepLearner:
                             upper_morphtag_encodings.append(self.attend_encodings(tmp, self.mtag_encoding_composition_type))
                     else:
                         upper_morphtag_encodings = morphtag_encodings
+                    
+                    if self.mtag_wsum_composition_alpha != 0:
+                        for index, mtag in enumerate(upper_morphtag_encodings):
+                            if index > 0:
+                                upper_morphtag_encodings [index] = \
+                                    self.mtag_wsum_composition_alpha * upper_morphtag_encodings[index-1] + \
+                                    (1 - self.mtag_wsum_composition_alpha) * upper_morphtag_encodings[index]
 
                     for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
                         entry.vec = concatenate([entry.vec, mtag])
@@ -577,6 +596,13 @@ class jPosDepLearner:
                         upper_pos_encodings.append(self.attend_encodings(tmp, self.pos_encoding_composition_type))
                 else:
                     upper_pos_encodings = pos_encodings
+
+                if self.pos_wsum_composition_alpha != 0:
+                    for index, _ in enumerate(upper_pos_encodings):
+                        if index > 0:
+                            upper_pos_encodings [index] = \
+                                self.pos_wsum_composition_alpha * upper_pos_encodings[index-1] + \
+                                (1 - self.pos_wsum_composition_alpha) * upper_pos_encodings[index]
                 for entry, pos in zip(conll_sentence, upper_pos_encodings):
                     entry.vec = concatenate([entry.vec, pos])
                     entry.lstms = [entry.vec, entry.vec]
@@ -801,6 +827,14 @@ class jPosDepLearner:
                             upper_morph_encodings.append(self.attend_encodings(tmp, self.morph_encoding_composition_type))
                     else:
                         upper_morph_encodings = morph_encodings
+
+                    if self.morph_wsum_composition_alpha != 0:
+                        for index, _ in enumerate(upper_morph_encodings):
+                            if index > 0:
+                                upper_morph_encodings [index] = \
+                                    self.morph_wsum_composition_alpha * upper_morph_encodings[index-1] + \
+                                    (1 - self.morph_wsum_composition_alpha) * upper_morph_encodings[index]
+
                     for entry, morph in zip(conll_sentence, upper_morph_encodings):
                         entry.vec = concatenate([entry.vec, dynet.dropout(morph, 0.33)])
 
@@ -837,6 +871,12 @@ class jPosDepLearner:
                             upper_morphtag_encodings.append(self.attend_encodings(tmp, self.mtag_encoding_composition_type))
                     else:
                         upper_morphtag_encodings = morphtag_encodings
+                    if self.mtag_wsum_composition_alpha != 0:
+                        for index, _ in enumerate(upper_morphtag_encodings):
+                            if index > 0:
+                                upper_morphtag_encodings [index] = \
+                                    self.mtag_wsum_composition_alpha * upper_morphtag_encodings[index-1] + \
+                                    (1 - self.mtag_wsum_composition_alpha) * upper_morphtag_encodings[index]
                     for entry, mtag in zip(conll_sentence, upper_morphtag_encodings):
                         entry.vec = concatenate([entry.vec, dynet.dropout(mtag, 0.33)])
 
@@ -891,6 +931,14 @@ class jPosDepLearner:
                         upper_pos_encodings.append(self.attend_encodings(tmp, self.pos_encoding_composition_type))
                 else:
                     upper_pos_encodings = pos_encodings
+
+                if self.pos_wsum_composition_alpha != 0:
+                    for index, _ in enumerate(upper_pos_encodings):
+                        if index > 0:
+                            upper_pos_encodings [index] = \
+                                self.pos_wsum_composition_alpha * upper_pos_encodings[index-1] + \
+                                (1 - self.pos_wsum_composition_alpha) * upper_pos_encodings[index]
+
                 for entry, pos in zip(conll_sentence, upper_pos_encodings):
                     entry.vec = concatenate([entry.vec, dynet.dropout(pos, 0.33)])
                     entry.lstms = [entry.vec, entry.vec]
