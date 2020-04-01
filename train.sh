@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 7 ]; then
-    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MTAG_ALPHA'
-    echo 'Example: sh train.sh jointAll 2.2 train Turkish 15 csum 0.5'
+if [ $# -ne 9 ]; then
+    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MORPH_COMP POS_COMP COMP_ALPHA'
+    echo 'Example: sh train.sh jointAll 2.2 train Turkish 15 w_sum w_sum w_sum 0.3'
     exit 0
 fi
 
@@ -23,7 +23,9 @@ PREDICT=$3
 LANG=$4
 EPOCH=$5
 MTAG_COMP=$6
-MTAG_ALPHA=$7
+MORPH_COMP=$7
+POS_COMP=$8
+COMP_ALPHA=$9
 
 UDTRAIN=""
 UDTEST=""
@@ -54,14 +56,14 @@ if [ $PREDICT = "predict" ]; then
 	echo "Predicting..."
     python jPTDP.py  	--dynet-seed  123456789 \
             			--dynet-mem 1000 \--predict \
-				        --model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-				        --params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+				        --model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+				        --params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 				        --outdir ../outdir \
 				        --train $UDTRAIN \
 				        --test $UDTEST \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \
+						--encoding-composition-alpha $COMP_ALPHA \
 					    --segmentation $DATASET_VARIABLE/metu.tr \
 					    --prevectors $PREVECTORS 
 else
@@ -79,9 +81,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -102,9 +104,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -126,9 +128,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -136,7 +138,7 @@ else
 						--disablemorph \
 						--disablepipeline \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \
+						--encoding-composition-alpha $COMP_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "morphTagAblation" ]; then
 		echo "Only Gold Morph Tagging"
@@ -151,9 +153,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -162,7 +164,7 @@ else
 						--enable-gold-morphtag \
 						--disablepipeline \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \
+						--encoding-composition-alpha $COMP_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAll" ]; then
 		echo "Joint All Tasks"
@@ -177,16 +179,16 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET_VARIABLE/metu.tr \
 						--disablepipeline \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \
+						--encoding-composition-alpha $COMP_ALPHA \
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationSeg" ]; then
 		echo "Joint All Tasks with gold morph segs"
@@ -201,9 +203,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -211,7 +213,7 @@ else
 						--disablepipeline \
 						--enable-gold-morph \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
+						--encoding-composition-alpha $COMP_ALPHA \						
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationMorphTag" ]; then
 		echo "Joint All Tasks with gold morph tags"
@@ -226,9 +228,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -236,7 +238,7 @@ else
 						--disablepipeline \
 						--enable-gold-morphtag \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
+						--encoding-composition-alpha $COMP_ALPHA \						
 						--prevectors $PREVECTORS
 	elif [ $TYPE = "jointAllAblationBoth" ]; then
 		echo "Joint All Tasks with gold morphs and tags"
@@ -251,9 +253,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -262,7 +264,7 @@ else
 						--enable-gold-morphtag \
 						--enable-gold-morph \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--mtag-encoding-composition-alpha $MTAG_ALPHA \						
+						--encoding-composition-alpha $COMP_ALPHA \						
 						--prevectors $PREVECTORS						
 	elif [ $TYPE = "base" ]; then
 		echo "Base Dependency Model"
@@ -277,9 +279,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
-						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
-						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
