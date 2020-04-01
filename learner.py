@@ -446,19 +446,10 @@ class jPosDepLearner:
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
 
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
                             current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
                             encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
                                 + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
-                                            + self.mtag_encoding_vertical_composition_b
                             prev_encoding_mtag = current_encoding_mtag
                         else:
                             encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
@@ -716,19 +707,11 @@ class jPosDepLearner:
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "cwise_mult":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = cmult(prev_encoding_mtag,current_encoding_mtag)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+
+                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
                             current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
                             encoding_mtag = prev_encoding_mtag*self.mtag_encoding_composition_alpha \
                                 + current_encoding_mtag*(1-self.mtag_encoding_composition_alpha)
-                            prev_encoding_mtag = current_encoding_mtag
-                        elif prev_encoding_mtag and self.mtag_encoding_composition_type == "mlp":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = self.mtag_encoding_vertical_composition_w * concatenate(current_encoding_mtag, prev_encoding_mtag) \
-                                            + self.mtag_encoding_vertical_composition_b
                             prev_encoding_mtag = current_encoding_mtag
                         else:
                             encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
