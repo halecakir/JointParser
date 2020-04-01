@@ -2,7 +2,7 @@
 
 if [ $# -ne 7 ]; then
     echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MTAG_ALPHA'
-    echo 'Example: sh train.sh jointAll 2.2 predict 15 mlp 0.5'
+    echo 'Example: sh train.sh jointAll 2.2 train Turkish 15 csum 0.5'
     exit 0
 fi
 
