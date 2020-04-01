@@ -54,12 +54,12 @@ if [ $PREDICT = "predict" ]; then
 	echo "Predicting..."
     python jPTDP.py  	--dynet-seed  123456789 \
             			--dynet-mem 1000 \--predict \
-				        --model "$LANG-$TYPE-trialmodel" \
-				        --params "$LANG-$TYPE-trialmodel.params" \
+				        --model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+				        --params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
 				        --outdir ../outdir \
 				        --train $UDTRAIN \
 				        --test $UDTEST \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--mtag-encoding-composition-alpha $MTAG_ALPHA \
 					    --segmentation $DATASET_VARIABLE/metu.tr \
@@ -79,9 +79,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -102,9 +102,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -126,9 +126,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -151,9 +151,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -177,9 +177,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -201,9 +201,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -226,9 +226,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -251,9 +251,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
@@ -277,9 +277,9 @@ else
 						--membedding 50 \
 						--tembedding 50 \
 						--pembedding 100 \
-						--model "$LANG-$TYPE-trialmodel" \
-						--params "$LANG-$TYPE-trialmodel.params" \
-						--output "$LANG-$TYPE-test.conllu.pred" \
+						--model "$LANG-$TYPE-$MTAG_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-$MTAG_ALPHA-trialmodel.params" \
+						--output "$LANG-$TYPE-$MTAG_ALPHA-test.conllu.pred" \
 						--outdir ../outdir \
 						--train $UDTRAIN \
 						--dev $UDTEST \
