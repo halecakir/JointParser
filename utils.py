@@ -7,6 +7,8 @@ import pickle
 import numpy as np
 import random
 
+random.seed(1)
+np.random.seed(1)
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):

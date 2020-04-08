@@ -4,7 +4,6 @@ import pickle, utils, learner, os, os.path, time
 import numpy as np
 import evaluation.conll18_ud_eval as ud_eval
 
-
 def save_dependencies(dependencies, path):
     with open(path, 'w') as fh:
         for sentence in dependencies:
@@ -20,6 +19,7 @@ def score(gold_dev, gold_pred):
 
 if __name__ == '__main__':
     parser = OptionParser()
+    parser.add_option("--type", dest="type", help="Experiment Type")
     parser.add_option("--train", dest="conll_train", help="Path to annotated CONLL train file", metavar="FILE", default="N/A")
     parser.add_option("--dev", dest="conll_dev", help="Path to annotated CONLL dev file", metavar="FILE", default="N/A")
     parser.add_option("--test", dest="conll_test", help="Path to CONLL test file", metavar="FILE", default="N/A")
@@ -78,12 +78,42 @@ if __name__ == '__main__':
         
         testoutpath = os.path.join(options.output, options.conll_test_output)
         print('Predicting POS tags and parsing dependencies')
+        prediction = list(parser.Predict(options.conll_test))
         with open(testoutpath, 'w') as fh:
-            for sentence in parser.Predict(options.conll_test):
+            for sentence in prediction:
                 for entry in sentence[1:]:
                     fh.write(str(entry) + '\n')
                 fh.write('\n')
+        if options.conll_test != "N/A":                
+            count = 0
+            seg_count = 0
+            segAcc = 0
 
+            for idSent, sentence in enumerate(prediction):
+                conll_sent = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
+                for entry in conll_sent:
+                    if entry.id <= 0:
+                        continue
+                    if options.morphFlag and len(entry.seg) != 0 and len(entry.pred_seg) == len(entry.seg):
+                        segAcc += np.average([(gold and pred > 0.6) or (not gold and pred < 0.6) for pred, gold in zip(entry.pred_seg, entry.seg)])
+                        seg_count += 1
+                    count += 1               
+            evaluation = score(options.conll_test, testoutpath)
+            outStr = "{},{},{},{},{},".format(options.type,
+                                    stored_opt.morph_encoding_composition_type,
+                                    stored_opt.mtag_encoding_composition_type,
+                                    stored_opt.pos_encoding_composition_type,
+                                    stored_opt.encoding_composition_alpha)
+            las = evaluation["LAS"].f1 * 100 
+            uas = evaluation["UAS"].f1 * 100 
+            upos = evaluation["UPOS"].f1 * 100
+            feats = evaluation["UFeats"].f1 * 100
+            outStr += "{:.2f},{:.2f},{:.2f},{:.2f}".format(las, uas, upos, feats)
+            if stored_opt.morphTagFlag:
+                outStr += ",{:.2f}".format(feats)
+            if stored_opt.morphFlag:
+                outStr += ",{:.2f}".format(float(segAcc) * 100 / seg_count)
+            print(outStr)
     else:
         print("TRAIN...")
         print("Training file: " + options.conll_train)

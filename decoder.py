@@ -6,6 +6,7 @@ import sys
 from collections import defaultdict, namedtuple
 from operator import itemgetter
 
+np.random.seed(1)
 
 def parse_proj(scores, gold=None):
     '''

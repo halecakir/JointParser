@@ -1,23 +1,31 @@
 # coding=utf-8
-from dynet import *
+import dynet_config
+
+# Declare GPU as the default device type
+dynet_config.set_gpu()
+# Set some parameters manualy
+dynet_config.set(mem=400, random_seed=123456789)
+
 import dynet
+
 from utils import read_conll, write_conll, load_embeddings_file
 from operator import itemgetter
 import utils, time, random, decoder
 import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 
+np.random.seed(1)
 
 class jPosDepLearner:
     def __init__(self, vocab, pos, rels, w2i, c2i, m2i, t2i, morph_dict, options):
-        self.model = ParameterCollection()
+        self.model = dynet.ParameterCollection()
         random.seed(1)
-        self.trainer = AdamTrainer(self.model)
+        self.trainer = dynet.AdamTrainer(self.model)
         #if options.learning_rate is not None:
         #    self.trainer = AdamTrainer(self.model, alpha=options.learning_rate)
         #    print("Adam initial learning rate:", options.learning_rate)
-        self.activations = {'tanh': tanh, 'sigmoid': logistic, 'relu': rectify,
-                            'tanh3': (lambda x: tanh(cwise_multiply(cwise_multiply(x, x), x)))}
+        self.activations = {'tanh': dynet.tanh, 'sigmoid': dynet.logistic, 'relu': dynet.rectify,
+                            'tanh3': (lambda x: dynet.tanh(dynet.cwise_multiply(dynet.cwise_multiply(x, x), x)))}
         self.activation = self.activations[options.activation]
 
         self.blstmFlag = options.blstmFlag
@@ -76,24 +84,24 @@ class jPosDepLearner:
         self.morph_dims = 2*2*self.mdims if self.morphFlag else 0
         self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
 
-        self.pos_builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
-        self.pos_bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
-                              VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
+        self.pos_builders = [dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
+        self.pos_bbuilders = [dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
+                              dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
 
         if self.bibiFlag:
-            self.builders = [VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
-            self.bbuilders = [VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
-                              VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
+            self.builders = [dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
+            self.bbuilders = [dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
+                              dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         elif self.layers > 0:
-            self.builders = [VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
-                             VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
+            self.builders = [dynet.VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
+                             dynet.VanillaLSTMBuilder(self.layers, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model)]
         else:
-            self.builders = [SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
-                             SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
+            self.builders = [dynet.SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
+                             dynet.SimpleRNNBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
 
-        self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), softmax))
+        self.ffSeqPredictor = FFSequencePredictor(Layer(self.model, self.ldims * 2, len(self.pos), dynet.softmax))
 
         self.hidden_units = options.hidden_units
 
@@ -112,33 +120,33 @@ class jPosDepLearner:
             self.routBias = self.model.add_parameters((len(self.irels)))
             self.ffRelPredictor = FFSequencePredictor(
                 Layer(self.model, self.hidden_units if self.hidden_units > 0 else self.ldims * 8, len(self.irels),
-                      softmax))
+                      dynet.softmax))
 
-        self.char_rnn = RNNSequencePredictor(LSTMBuilder(1, self.cdims, self.cdims, self.model))
+        self.char_rnn = RNNSequencePredictor(dynet.LSTMBuilder(1, self.cdims, self.cdims, self.model))
 
         if self.morphFlag:
-            self.seg_lstm = [VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model),
-                                    VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model)]
+            self.seg_lstm = [dynet.VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model),
+                                    dynet.VanillaLSTMBuilder(1, self.cdims, self.cdims, self.model)]
             self.seg_hidLayer = self.model.add_parameters((1, self.cdims*2))
             self.slookup = self.model.add_lookup_parameters((len(self.c2i), self.cdims))
 
-            self.char_lstm = [VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model),
-                                    VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model)]
+            self.char_lstm = [dynet.VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model),
+                                    dynet.VanillaLSTMBuilder(1, self.cdims, self.mdims, self.model)]
             self.char_hidLayer = self.model.add_parameters((self.mdims, self.mdims*2))
             self.mclookup = self.model.add_lookup_parameters((len(self.c2i), self.cdims))
 
-            self.morph_lstm = [VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model),
-                                VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model)]
+            self.morph_lstm = [dynet.VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model),
+                                dynet.VanillaLSTMBuilder(1, self.mdims*2, self.wdims, self.model)]
             self.morph_hidLayer = self.model.add_parameters((self.wdims, self.wdims*2))
             self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
 
-            self.morph_rnn = RNNSequencePredictor(LSTMBuilder(1, self.mdims*2, self.mdims*2, self.model))
+            self.morph_rnn = RNNSequencePredictor(dynet.LSTMBuilder(1, self.mdims*2, self.mdims*2, self.model))
 
         if self.morphTagFlag:
             # All weights for morpheme taging will be here. (CURSOR)
 
             # Decoder
-            self.dec_lstm = VanillaLSTMBuilder(1, 2 * self.cdims + self.tdims + self.cdims * 2, self.cdims, self.model)
+            self.dec_lstm = dynet.VanillaLSTMBuilder(1, 2 * self.cdims + self.tdims + self.cdims * 2, self.cdims, self.model)
 
             # Attention
             self.attention_w1 = self.model.add_parameters((self.tagging_attention_size, self.cdims * 2))
@@ -154,7 +162,7 @@ class jPosDepLearner:
             self.decoder_w = self.model.add_parameters((len(t2i), self.cdims))
             self.decoder_b = self.model.add_parameters((len(t2i)))
 
-            self.mtag_rnn = RNNSequencePredictor(VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
+            self.mtag_rnn = RNNSequencePredictor(dynet.VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
 
 
@@ -169,16 +177,16 @@ class jPosDepLearner:
                     count += 1
                     self.wlookup.init_row(self.vocab[word], self.__getWordVector(morph_seg).vec_value())
             print("Vocab size: %d; #missing words having generated vectors: %d" % (len(self.vocab), count))
-            renew_cg()
+            dynet.renew_cg()
 
     def __getExpr(self, sentence, i, j):
 
         if sentence[i].headfov is None:
-            sentence[i].headfov = concatenate([sentence[i].lstms[0], sentence[i].lstms[1]])
+            sentence[i].headfov = dynet.concatenate([sentence[i].lstms[0], sentence[i].lstms[1]])
         if sentence[j].modfov is None:
-            sentence[j].modfov = concatenate([sentence[j].lstms[0], sentence[j].lstms[1]])
+            sentence[j].modfov = dynet.concatenate([sentence[j].lstms[0], sentence[j].lstms[1]])
 
-        _inputVector = concatenate(
+        _inputVector = dynet.concatenate(
             [sentence[i].headfov, sentence[j].modfov, dynet.abs(sentence[i].headfov - sentence[j].modfov),
              dynet.cmult(sentence[i].headfov, sentence[j].modfov)])
 
@@ -215,12 +223,12 @@ class jPosDepLearner:
 
     def __getRelVector(self, sentence, i, j):
         if sentence[i].rheadfov is None:
-            sentence[i].rheadfov = concatenate([sentence[i].lstms[0], sentence[i].lstms[1]])
+            sentence[i].rheadfov = dynet.concatenate([sentence[i].lstms[0], sentence[i].lstms[1]])
         if sentence[j].rmodfov is None:
-            sentence[j].rmodfov = concatenate([sentence[j].lstms[0], sentence[j].lstms[1]])
-        _outputVector = concatenate(
-            [sentence[i].rheadfov, sentence[j].rmodfov, abs(sentence[i].rheadfov - sentence[j].rmodfov),
-             cmult(sentence[i].rheadfov, sentence[j].rmodfov)])
+            sentence[j].rmodfov = dynet.concatenate([sentence[j].lstms[0], sentence[j].lstms[1]])
+        _outputVector = dynet.concatenate(
+            [sentence[i].rheadfov, sentence[j].rmodfov, dynet.abs(sentence[i].rheadfov - sentence[j].rmodfov),
+             dynet.cmult(sentence[i].rheadfov, sentence[j].rmodfov)])
 
         if self.hidden_units > 0:
             return self.rhid2Bias.expr() + self.rhidLayer.expr() * self.activation(
@@ -237,9 +245,9 @@ class jPosDepLearner:
 
         seg_vec = []
         for seg, rev_seg in zip(seg_lstm_forward,reversed(seg_lstm_backward)):
-            seg_vec.append(dynet.logistic(self.seg_hidLayer.expr() * concatenate([seg,rev_seg])))
+            seg_vec.append(dynet.logistic(self.seg_hidLayer.expr() * dynet.concatenate([seg,rev_seg])))
 
-        seg_vec = concatenate(seg_vec)
+        seg_vec = dynet.concatenate(seg_vec)
 
         return seg_vec
 
@@ -250,9 +258,9 @@ class jPosDepLearner:
         char_lstm_forward = clstm_forward.transduce([self.mclookup[self.c2i[char] if char in self.c2i else 0] for char in morph] if len(morph) > 0 else [self.mclookup[0]])[-1]
         char_lstm_backward = clstm_backward.transduce([self.mclookup[self.c2i[char] if char in self.c2i else 0] for char in reversed(morph)] if len(morph) > 0 else [self.mclookup[0]])[-1]
 
-        char_emb = self.char_hidLayer.expr() * concatenate([char_lstm_forward,char_lstm_backward])
+        char_emb = self.char_hidLayer.expr() * dynet.concatenate([char_lstm_forward,char_lstm_backward])
 
-        return concatenate([self.mlookup[self.m2i[morph] if morph in self.m2i else 0], char_emb])
+        return dynet.concatenate([self.mlookup[self.m2i[morph] if morph in self.m2i else 0], char_emb])
 
     def __getWordVector(self, morph_seg):
         mlstm_forward = self.morph_lstm[0].initial_state()
@@ -261,96 +269,96 @@ class jPosDepLearner:
         morph_lstm_forward = mlstm_forward.transduce([self.__getMorphVector(morph) for morph in morph_seg])[-1]
         morph_lstm_backward = mlstm_backward.transduce([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[-1]
 
-        morph_enc = concatenate([morph_lstm_forward, morph_lstm_backward])
+        morph_enc = dynet.concatenate([morph_lstm_forward, morph_lstm_backward])
         word_vec = self.morph_hidLayer.expr() * morph_enc
 
         return word_vec
 
     def attend(self, input_mat, state, w1dt):
-        w2 = parameter(self.attention_w2)
-        v = parameter(self.attention_v)
+        w2 = dynet.parameter(self.attention_w2)
+        v = dynet.parameter(self.attention_v)
 
         # input_mat: (encoder_state x seqlen) => input vecs concatenated as cols
         # w1dt: (attdim x seqlen)
         # w2dt: (attdim,1)
-        w2dt = w2 * concatenate(list(state.s()))
+        w2dt = w2 * dynet.concatenate(list(state.s()))
         # att_weights: (seqlen,) row vector
         # unnormalized: (seqlen,)
-        unnormalized = transpose(v * tanh(colwise_add(w1dt, w2dt)))
-        att_weights = softmax(unnormalized)
+        unnormalized = dynet.transpose(v * dynet.tanh(dynet.colwise_add(w1dt, w2dt)))
+        att_weights = dynet.softmax(unnormalized)
         # context: (encoder_state)
         context = input_mat * att_weights
         return context
 
     def attend_context(self, input_mat, state, w1dt_context):
-        w2_context = parameter(self.attention_w2_context)
-        v_context = parameter(self.attention_v_context)
+        w2_context = dynet.parameter(self.attention_w2_context)
+        v_context = dynet.parameter(self.attention_v_context)
 
         # input_mat: (encoder_state x seqlen) => input vecs concatenated as cols
         # w1dt: (attdim x seqlen)
         # w2dt: (attdim,1)
-        w2dt_context = w2_context * concatenate(list(state.s()))
+        w2dt_context = w2_context * dynet.concatenate(list(state.s()))
         # att_weights: (seqlen,) row vector
         # unnormalized: (seqlen,)
-        unnormalized = transpose(v_context * tanh(colwise_add(w1dt_context, w2dt_context)))
-        att_weights = softmax(unnormalized)
+        unnormalized = dynet.transpose(v_context * dynet.tanh(dynet.colwise_add(w1dt_context, w2dt_context)))
+        att_weights = dynet.softmax(unnormalized)
         # context: (encoder_state)
         context = input_mat * att_weights
         return context
 
     def decode(self, vectors, decoder_seq, word_context):
-        w = parameter(self.decoder_w)
-        b = parameter(self.decoder_b)
-        w1 = parameter(self.attention_w1)
+        w = dynet.parameter(self.decoder_w)
+        b = dynet.parameter(self.decoder_b)
+        w1 = dynet.parameter(self.attention_w1)
 
-        w1_context = parameter(self.attention_w1_context)
-        input_mat = concatenate_cols(vectors)
-        input_context = concatenate_cols(word_context)
+        w1_context = dynet.parameter(self.attention_w1_context)
+        input_mat = dynet.concatenate_cols(vectors)
+        input_context = dynet.concatenate_cols(word_context)
 
         w1dt = None
         w1dt_context = None
 
         last_output_embeddings = self.tlookup[self.t2i["<s>"]]
-        s = self.dec_lstm.initial_state().add_input(concatenate([vecInput(self.cdims * 2),
+        s = self.dec_lstm.initial_state().add_input(dynet.concatenate([dynet.vecInput(self.cdims * 2),
                                                                     last_output_embeddings,
-                                                                    vecInput(self.cdims * 2)]))
+                                                                    dynet.vecInput(self.cdims * 2)]))
         loss = []
 
         for char in decoder_seq:
             # w1dt can be computed and cached once for the entire decoding phase
             w1dt = w1dt or w1 * input_mat
             w1dt_context = w1dt_context or w1_context * input_context
-            vector = concatenate([self.attend(input_mat, s, w1dt),
+            vector = dynet.concatenate([self.attend(input_mat, s, w1dt),
                                      last_output_embeddings,
                                      self.attend_context(input_context, s, w1dt_context)])
             s = s.add_input(vector)
             out_vector = w * s.output() + b
-            probs = softmax(out_vector)
+            probs = dynet.softmax(out_vector)
             last_output_embeddings = self.tlookup[char]
-            loss.append(-log(pick(probs, char)))
-        loss = esum(loss)
+            loss.append(-dynet.log(dynet.pick(probs, char)))
+        loss = dynet.esum(loss)
         return loss
 
     def __getLossMorphTagging(self, all_encoded_states, decoder_gold, word_context):
         return self.decode(all_encoded_states, decoder_gold, word_context)
 
     def generate(self, encoded, word_context):
-        w = parameter(self.decoder_w)
-        b = parameter(self.decoder_b)
-        w1 = parameter(self.attention_w1)
+        w = dynet.parameter(self.decoder_w)
+        b = dynet.parameter(self.decoder_b)
+        w1 = dynet.parameter(self.attention_w1)
 
-        w1_context = parameter(self.attention_w1_context)
+        w1_context = dynet.parameter(self.attention_w1_context)
 
-        input_mat = concatenate_cols(encoded)
-        input_context = concatenate_cols(word_context)
+        input_mat = dynet.concatenate_cols(encoded)
+        input_context = dynet.concatenate_cols(word_context)
 
         w1dt = None
         w1dt_context = None
 
         last_output_embeddings = self.tlookup[self.t2i["<s>"]]
-        s = self.dec_lstm.initial_state().add_input(concatenate([vecInput(self.cdims * 2),
+        s = self.dec_lstm.initial_state().add_input(dynet.concatenate([dynet.vecInput(self.cdims * 2),
                                                                     last_output_embeddings,
-                                                                    vecInput(self.cdims * 2)]))
+                                                                    dynet.vecInput(self.cdims * 2)]))
 
         out = []
         count_EOS = 0
@@ -360,13 +368,13 @@ class jPosDepLearner:
             # w1dt can be computed and cached once for the entire decoding phase
             w1dt = w1dt or w1 * input_mat
             w1dt_context = w1dt_context or w1_context * input_context
-            vector = concatenate([self.attend(input_mat, s, w1dt),
+            vector = dynet.concatenate([self.attend(input_mat, s, w1dt),
                                      last_output_embeddings,
                                      self.attend_context(input_context, s, w1dt_context)])
 
             s = s.add_input(vector)
             out_vector = w * s.output() + b
-            probs = softmax(out_vector).vec_value()
+            probs = dynet.softmax(out_vector).vec_value()
             next_char = probs.index(max(probs))
             last_output_embeddings = self.tlookup[next_char]
             if next_char == self.t2i["<s>"]:
@@ -389,23 +397,24 @@ class jPosDepLearner:
                     sentence_context = []
                     last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
-                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
+                    sentence_context.append(dynet.concatenate([last_state_char, rev_last_state_char]))
                     for entry in conll_sentence:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
+                        entry.char_rnn_states = [dynet.concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
                 prev_encoding_mtag = None
+                prev_encoding_morph = None
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
                     if self.morphTagFlag:
-                        entry.vec = concatenate([wordvec, entry.char_rnn_states[-1]])
+                        entry.vec = dynet.concatenate([wordvec, entry.char_rnn_states[-1]])
                     else:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
-                        entry.vec = concatenate([wordvec, last_state_char, rev_last_state_char])
+                        entry.vec = dynet.concatenate([wordvec, last_state_char, rev_last_state_char])
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -428,8 +437,16 @@ class jPosDepLearner:
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
+                        
+                        if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                + prev_encoding_morph*(1-self.encoding_composition_alpha)
+                            prev_encoding_morph = current_encoding_morph
+                        else:
+                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
-                        entry.vec = concatenate([entry.vec, last_state_morph, rev_last_state_morph])
+                        entry.vec = dynet.concatenate([entry.vec, encoding_morph])
 
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:
@@ -447,14 +464,14 @@ class jPosDepLearner:
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
 
                         if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
                                 + current_encoding_mtag*(1-self.encoding_composition_alpha)
                             prev_encoding_mtag = current_encoding_mtag
                         else:
-                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
-                        entry.vec = concatenate([entry.vec, encoding_mtag])
+                        entry.vec = dynet.concatenate([entry.vec, encoding_mtag])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -474,7 +491,7 @@ class jPosDepLearner:
                     rentry.pos_lstms[0] = lstm_backward.output()
 
                 for entry in conll_sentence:
-                    entry.pos_vec = concatenate(entry.pos_lstms)
+                    entry.pos_vec = dynet.concatenate(entry.pos_lstms)
 
                 blstm_forward = self.pos_bbuilders[0].initial_state()
                 blstm_backward = self.pos_bbuilders[1].initial_state()
@@ -485,15 +502,25 @@ class jPosDepLearner:
                     entry.pos_lstms[1] = blstm_forward.output()
                     rentry.pos_lstms[0] = blstm_backward.output()
 
-                concat_layer = [concatenate(entry.pos_lstms) for entry in conll_sentence]
+                concat_layer = [dynet.concatenate(entry.pos_lstms) for entry in conll_sentence]
                 outputFFlayer = self.ffSeqPredictor.predict_sequence(concat_layer)
                 predicted_pos_indices = [np.argmax(o.value()) for o in outputFFlayer]
                 predicted_postags = [self.id2pos[idx] for idx in predicted_pos_indices]
-
-                # Add predicted pos tags for parsing prediction
+                
+                # Add predicted pos tags
+                prev_encoding_pos = None
                 for entry, posid in zip(conll_sentence, predicted_pos_indices):
-                    entry.vec = concatenate([entry.vec, self.plookup[posid]])
+                    if prev_encoding_pos and self.pos_encoding_composition_type == "w_sum":
+                        current_encoding_pos = self.plookup[posid]
+                        encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
+                                + prev_encoding_pos*(1-self.encoding_composition_alpha)
+                        prev_encoding_pos = current_encoding_pos
+                    else:
+                        encoding_pos = self.plookup[posid]
+
+                    entry.vec = dynet.concatenate([entry.vec, encoding_pos, 0.33])
                     entry.lstms = [entry.vec, entry.vec]
+
 
                 if self.blstmFlag:
                     lstm_forward = self.builders[0].initial_state()
@@ -508,7 +535,7 @@ class jPosDepLearner:
 
                     if self.bibiFlag:
                         for entry in conll_sentence:
-                            entry.vec = concatenate(entry.lstms)
+                            entry.vec = dynet.concatenate(entry.lstms)
 
                         blstm_forward = self.bbuilders[0].initial_state()
                         blstm_backward = self.bbuilders[1].initial_state()
@@ -551,7 +578,7 @@ class jPosDepLearner:
                     for modifier, head in enumerate(heads[1:]):
                         conll_sentence[modifier + 1].pred_relation = predicted_rels[modifier]
 
-                renew_cg()
+                dynet.renew_cg()
                 if not dump:
                     yield sentence
 
@@ -562,14 +589,14 @@ class jPosDepLearner:
 
             word_vec = self.__getWordVector(morph_seg)
             word_emb[word] = word_vec.vec_value()
-        renew_cg()
+        dynet.renew_cg()
         return word_emb
 
     def morph(self):
         morph_dict = {}
         for morph in self.m2i.keys():
             morph_dict[morph] = self.__getMorphVector(morph).vec_value()
-        renew_cg()
+        dynet.renew_cg()
         return morph_dict
 
     def Train_Morph(self):
@@ -596,7 +623,7 @@ class jPosDepLearner:
                 mErrs = self.cosine_proximity(morph_vec, y_gold)
                 mErrs.backward()
                 self.trainer.update()
-            renew_cg()
+            dynet.renew_cg()
 
     def embed_word(self, word):
         return [self.input_lookup[char] for char in word]
@@ -615,7 +642,7 @@ class jPosDepLearner:
         fwd_vectors = self.run_lstm(self.enc_fwd_lstm.initial_state(), word)
         bwd_vectors = self.run_lstm(self.enc_bwd_lstm.initial_state(), word_rev)
         bwd_vectors = list(reversed(bwd_vectors))
-        vectors = [concatenate(list(p)) for p in zip(fwd_vectors, bwd_vectors)]
+        vectors = [dynet.concatenate(list(p)) for p in zip(fwd_vectors, bwd_vectors)]
         return vectors
 
     def Train(self, conll_path):
@@ -651,11 +678,11 @@ class jPosDepLearner:
                     sentence_context = []
                     last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
                     rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
-                    sentence_context.append(concatenate([last_state_char, rev_last_state_char]))
+                    sentence_context.append(dynet.concatenate([last_state_char, rev_last_state_char]))
                     for entry in conll_sentence:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
-                        entry.char_rnn_states = [concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
+                        entry.char_rnn_states = [dynet.concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
                 prev_encoding_mtag = None
@@ -666,11 +693,11 @@ class jPosDepLearner:
                     wordvec = self.wlookup[
                         int(self.vocab.get(entry.norm, 0)) if dropFlag else 0] if self.wdims > 0 else None
                     if self.morphTagFlag :
-                        entry.vec = dynet.dropout(concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
+                        entry.vec = dynet.dropout(dynet.concatenate([wordvec, entry.char_rnn_states[-1]]), 0.33)
                     else:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
-                        entry.vec = dynet.dropout(concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
+                        entry.vec = dynet.dropout(dynet.concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
 
                     if self.morphFlag:
                         if len(entry.norm) > 2:
@@ -693,14 +720,14 @@ class jPosDepLearner:
                             -1]
 
                         if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
-                            current_encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
                                 + prev_encoding_morph*(1-self.encoding_composition_alpha)
                             prev_encoding_morph = current_encoding_morph
                         else:
-                            encoding_morph = concatenate([last_state_morph, rev_last_state_morph])
+                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
-                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
+                        entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:	
@@ -718,14 +745,14 @@ class jPosDepLearner:
                             -1]
 
                         if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
-                            current_encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
                                 + current_encoding_mtag*(1-self.encoding_composition_alpha)
                             prev_encoding_mtag = current_encoding_mtag
                         else:
-                            encoding_mtag = concatenate([last_state_mtag, rev_last_state_mtag])
+                            encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
-                        entry.vec = concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
+                        entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
 
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
@@ -745,7 +772,7 @@ class jPosDepLearner:
                     rentry.pos_lstms[0] = lstm_backward.output()
 
                 for entry in conll_sentence:
-                    entry.pos_vec = concatenate(entry.pos_lstms)
+                    entry.pos_vec = dynet.concatenate(entry.pos_lstms)
 
                 blstm_forward = self.pos_bbuilders[0].initial_state()
                 blstm_backward = self.pos_bbuilders[1].initial_state()
@@ -756,7 +783,7 @@ class jPosDepLearner:
                     entry.pos_lstms[1] = blstm_forward.output()
                     rentry.pos_lstms[0] = blstm_backward.output()
 
-                concat_layer = [dynet.dropout(concatenate(entry.pos_lstms), 0.33) for entry in conll_sentence]
+                concat_layer = [dynet.dropout(dynet.concatenate(entry.pos_lstms), 0.33) for entry in conll_sentence]
                 outputFFlayer = self.ffSeqPredictor.predict_sequence(concat_layer)
                 posIDs = [self.pos.get(entry.pos) for entry in conll_sentence]
                 for pred, gold in zip(outputFFlayer, posIDs):
@@ -773,7 +800,7 @@ class jPosDepLearner:
                     else:
                         encoding_pos = self.plookup[np.argmax(poses.value())]
 
-                    entry.vec = concatenate([entry.vec, dynet.dropout(encoding_pos, 0.33)])
+                    entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_pos, 0.33)])
                     entry.lstms = [entry.vec, entry.vec]
 
                 #Parsing losses
@@ -790,7 +817,7 @@ class jPosDepLearner:
 
                     if self.bibiFlag:
                         for entry in conll_sentence:
-                            entry.vec = concatenate(entry.lstms)
+                            entry.vec = dynet.concatenate(entry.lstms)
 
                         blstm_forward = self.bbuilders[0].initial_state()
                         blstm_backward = self.bbuilders[1].initial_state()
@@ -826,7 +853,7 @@ class jPosDepLearner:
 
                 if iSentence % 1 == 0:
                     if len(errs) > 0 or len(lerrs) > 0 or len(posErrs) > 0 or len(segErrs) > 0 or len(mTagErrs) > 0:
-                        eerrs = (esum(errs + lerrs + posErrs + segErrs + mTagErrs))
+                        eerrs = (dynet.esum(errs + lerrs + posErrs + segErrs + mTagErrs))
                         eerrs.scalar_value()
                         eerrs.backward()
                         self.trainer.update()
@@ -836,6 +863,6 @@ class jPosDepLearner:
                         segErrs = []
                         mTagErrs = []
 
-                    renew_cg()
+                    dynet.renew_cg()
 
         print("Loss: %.4f" % (mloss / iSentence))
