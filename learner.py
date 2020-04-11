@@ -518,7 +518,7 @@ class jPosDepLearner:
                     else:
                         encoding_pos = self.plookup[posid]
 
-                    entry.vec = dynet.concatenate([entry.vec, encoding_pos, 0.33])
+                    entry.vec = dynet.concatenate([entry.vec, encoding_pos])
                     entry.lstms = [entry.vec, entry.vec]
 
 
