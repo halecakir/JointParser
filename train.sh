@@ -17,7 +17,7 @@ fi
 
 #Create outdir if not exist
 COMMIT_ID=`git rev-parse HEAD`
-OUTDIR='../outdir/$COMMIT_ID'
+OUTDIR="../outdir/$COMMIT_ID"
 mkdir -p $OUTDIR
 
 TYPE=$1
@@ -196,7 +196,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 768 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
