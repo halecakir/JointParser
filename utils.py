@@ -1,4 +1,7 @@
 # coding=utf-8
+import torch
+from transformers import BertModel, BertTokenizer
+
 from collections import Counter
 import os, re, codecs
 from gensim.models import KeyedVectors
@@ -7,8 +10,13 @@ import pickle
 import numpy as np
 import random
 
-random.seed(1)
-np.random.seed(1)
+tokenizer = BertTokenizer.from_pretrained('dbmdz/bert-base-turkish-cased')
+model = BertModel.from_pretrained('dbmdz/bert-base-turkish-cased')
+
+seed = 1
+torch.manual_seed(seed)
+random.seed(seed)
+np.random.seed(seed)
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, xpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -35,6 +43,7 @@ class ConllEntry:
         self.idMorphTags = []
         self.decoder_gold_input = []
 
+        self.embedding = None
     def __str__(self):
         values = [str(self.id), self.form, self.lemma, self.pred_pos, self.xpos, "|".join(self.pred_tags_tokens[1:-1]) if self.pred_tags_tokens is not None else self.feats,
                   str(self.pred_parent_id) if self.pred_parent_id is not None else None, self.pred_relation, self.deps,
@@ -124,6 +133,36 @@ def vocab(conll_path,morph_dict):
 
     return (wordsCount, {w: i for i, w in enumerate(list(wordsCount.keys()))}, c2i, m2i, t2i, list(posCount.keys()), list(relCount.keys()))
 
+def get_token_with_embeddings(tokens):
+
+    forms = [t.form for t in tokens[1:] if isinstance(t, ConllEntry)]
+
+    raw_sentence = " ".join(forms)
+    raw_sentence = raw_sentence.strip()
+    pieces = tokenizer.tokenize(raw_sentence)
+    input_ids = torch.tensor([tokenizer.encode(raw_sentence)])
+    token_indexes = []
+    for index, token in enumerate(pieces):
+        if not token.startswith("##"):
+            token_indexes.append([])
+        token_indexes[-1].append(index)
+    features = model(input_ids)[0]
+    embeddings = []
+    for t_i in token_indexes:
+        token_feats =  []
+        for i in t_i:
+            token_feats.append(features[0][i])
+        embedding = torch.max(torch.stack(token_feats), 0)[0].detach().numpy()
+        embeddings.append(embedding)
+    
+    tokens[0].embedding = np.zeros(768)
+    e_i = 0
+    for token in tokens[1:]:
+        if isinstance(token, ConllEntry):
+            token.embedding = embeddings[e_i]
+            e_i += 1
+
+    return tokens
 
 def read_conll(fh, c2i, m2i, t2i, morph_dict):
     # Character vocabulary
@@ -136,7 +175,8 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
     for line in fh:
         tok = line.strip().split('\t')
         if not tok or line.strip() == '':
-            if len(tokens) > 1: yield tokens
+            if len(tokens) > 1: 
+                yield get_token_with_embeddings(tokens)
             tokens = [root]
         else:
             if line[0] == '#' or '-' in tok[0] or '.' in tok[0]:
@@ -190,7 +230,7 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
                 tokens.append(entry)
 
     if len(tokens) > 1:
-        yield tokens
+        yield get_token_with_embeddings(tokens)
 
 
 def write_conll(fn, conll_gen):
