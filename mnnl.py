@@ -1,6 +1,13 @@
 """
 https://raw.githubusercontent.com/bplank/bilstm-aux/master/src/lib/mnnl.py
 """
+import dynet_config
+
+# Declare GPU as the default device type
+dynet_config.set_gpu()
+# Set some parameters manualy
+dynet_config.set(mem=400, random_seed=123456789)
+
 import dynet
 import numpy as np
 
