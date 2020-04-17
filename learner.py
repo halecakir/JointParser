@@ -798,7 +798,7 @@ class jPosDepLearner:
                     if  self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
                         if prev_encoding_pos:
-                            encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
+                            encoding_pos = prev_encoding_pos*self.encoding_composition_alpha \
                                             + current_encoding_pos*(1-self.encoding_composition_alpha)
                         else:
                             encoding_pos = current_encoding_pos
