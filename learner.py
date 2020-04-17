@@ -438,10 +438,13 @@ class jPosDepLearner:
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
                         
-                        if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
+                        if self.morph_encoding_composition_type == "w_sum":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
-                                + prev_encoding_morph*(1-self.encoding_composition_alpha)
+                            if prev_encoding_morph:
+                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_morph = current_encoding_morph                            
                             prev_encoding_morph = current_encoding_morph
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
@@ -463,10 +466,13 @@ class jPosDepLearner:
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
 
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                        if  self.mtag_encoding_composition_type == "w_sum":
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
-                                + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                            if prev_encoding_mtag:
+                                encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
+                                    + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
@@ -510,10 +516,13 @@ class jPosDepLearner:
                 # Add predicted pos tags
                 prev_encoding_pos = None
                 for entry, posid in zip(conll_sentence, predicted_pos_indices):
-                    if prev_encoding_pos and self.pos_encoding_composition_type == "w_sum":
+                    if self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[posid]
-                        encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
-                                + prev_encoding_pos*(1-self.encoding_composition_alpha)
+                        if prev_encoding_pos:
+                            encoding_pos = prev_encoding_pos*self.encoding_composition_alpha \
+                                    + current_encoding_pos*(1-self.encoding_composition_alpha)
+                        else:
+                            encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
                     else:
                         encoding_pos = self.plookup[posid]
@@ -719,10 +728,13 @@ class jPosDepLearner:
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
 
-                        if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
+                        if self.morph_encoding_composition_type == "w_sum":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
-                                + prev_encoding_morph*(1-self.encoding_composition_alpha)
+                            if prev_encoding_morph:
+                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_morph = current_encoding_morph
                             prev_encoding_morph = current_encoding_morph
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
@@ -744,10 +756,13 @@ class jPosDepLearner:
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
 
-                        if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                        if self.mtag_encoding_composition_type == "w_sum":
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
-                            encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
-                                + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                            if prev_encoding_mtag:
+                                encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
+                                    + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
@@ -792,10 +807,13 @@ class jPosDepLearner:
                 # Add predicted pos tags
                 prev_encoding_pos = None
                 for entry, poses in zip(conll_sentence, outputFFlayer):
-                    if prev_encoding_pos and self.pos_encoding_composition_type == "w_sum":
+                    if  self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
-                        encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
-                                + prev_encoding_pos*(1-self.encoding_composition_alpha)
+                        if prev_encoding_pos:
+                            encoding_pos = prev_encoding_pos*self.encoding_composition_alpha \
+                                            + current_encoding_pos*(1-self.encoding_composition_alpha)
+                        else:
+                            encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
                     else:
                         encoding_pos = self.plookup[np.argmax(poses.value())]

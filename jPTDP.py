@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_option("--activation", type="string", dest="activation", default="tanh")
     parser.add_option("--lstmlayers", type="int", dest="lstm_layers", default=2)
     parser.add_option("--lstmdims", type="int", dest="lstm_dims", default=128)
-    parser.add_option("--disablemorph", action="store_false", dest="morphFlag", default=True)
+    parser.add_option("--disablemorph", action="store_false", dest="morphFlag", default=False)
     parser.add_option("--enable-gold-morph", action="store_true", dest="goldMorphFlag", default=False)
     parser.add_option("--disablemorphtag", action="store_false", dest="morphTagFlag", default=True)
     parser.add_option("--enable-gold-morphtag", action="store_true", dest="goldMorphTagFlag", default=False)

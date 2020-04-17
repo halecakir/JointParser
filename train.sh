@@ -14,8 +14,11 @@ else
   
 fi
 
+
 #Create outdir if not exist
-mkdir -p ../outdir
+COMMIT_ID=`git rev-parse HEAD`
+OUTDIR="../outdir/$COMMIT_ID"
+mkdir -p $OUTDIR
 
 TYPE=$1
 UDTYPE=$2
@@ -59,7 +62,7 @@ if [ $PREDICT = "predict" ]; then
             			--dynet-mem 1000 \--predict \
 				        --model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 				        --params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
-				        --outdir ../outdir \
+				        --outdir $OUTDIR \
 				        --train $UDTRAIN \
 				        --test $UDTEST \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
@@ -68,7 +71,7 @@ if [ $PREDICT = "predict" ]; then
 					    --segmentation $DATASET/metu.tr \
 						--morph-encoding-composition-type $MORPH_COMP \
 						--mtag-encoding-composition-type $MTAG_COMP \
-						--pos-encoding-composition-type $POS_COMP \						
+						--pos-encoding-composition-type $POS_COMP \
 					    --prevectors $PREVECTORS 
 else
 	echo "Training..."
@@ -89,7 +92,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -116,7 +119,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -144,7 +147,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -172,7 +175,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -201,7 +204,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -228,7 +231,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -256,7 +259,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -284,7 +287,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
@@ -313,7 +316,7 @@ else
 						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
 						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
-						--outdir ../outdir \
+						--outdir $OUTDIR \
 						--train $UDTRAIN \
 						--dev $UDTEST \
 						--segmentation $DATASET/metu.tr \
