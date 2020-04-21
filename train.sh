@@ -34,6 +34,8 @@ UDTRAIN=""
 UDTEST=""
 PREVECTORS=""
 
+#Set Python seed
+export PYTHONHASHSEED=0
 
 echo "UD_TYPE is $UDTYPE"
 
