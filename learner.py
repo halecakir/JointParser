@@ -378,6 +378,7 @@ class jPosDepLearner:
         self.model.populate(filename)
 
     def Predict(self, conll_path):
+        print("Predicting...")
         with open(conll_path, 'r') as conllFP:
             for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
