@@ -70,6 +70,7 @@ class jPosDepLearner:
         self.ext_embeddings = None
 
         if options.external_embedding is not None:
+            print("External embeddding is loading...")
             ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
             assert (ext_emb_dim == self.wdims)
             print("Initializing word embeddings by pre-trained vectors")
@@ -389,6 +390,7 @@ class jPosDepLearner:
         self.model.populate(filename)
 
     def Predict(self, conll_path):
+        print("Predicting...")
         with open(conll_path, 'r') as conllFP:
             for iSentence, sentence in enumerate(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict)):
                 conll_sentence = [entry for entry in sentence if isinstance(entry, utils.ConllEntry)]
@@ -655,6 +657,7 @@ class jPosDepLearner:
         return vectors
 
     def Train(self, conll_path):
+        print("Training...")
         self.trainer.set_sparse_updates(True)
         eloss = 0.0
         mloss = 0.0
