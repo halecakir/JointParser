@@ -192,7 +192,47 @@ def read_conll(fh, c2i, m2i, t2i, morph_dict):
     if len(tokens) > 1:
         yield tokens
 
+def convert_raw_to_conll(sentence, c2i, m2i, t2i, morph_dict):
+    root = ConllEntry(0, '*root*', '*root*', 'ROOT-POS', 'ROOT-CPOS', '_', -1, 'rroot', '_', '_')
+    root.idChars = [1, 2]
+    root.idMorphs = [1, 2]
+    root.idMorphTags = [t2i["<s>"], t2i["<s>"]]
+    tokens = [root]
+    splitted = sentence.strip().lower().split()
+    for tid, t in enumerate(splitted):
+        entry = ConllEntry(tid, t, None, None, None)
+        if entry.norm == 'NUM':
+            entry.idChars = [1, 3, 2]
+        elif entry.norm == 'EMAIL':
+            entry.idChars = [1, 4, 2]
+        elif entry.norm == 'URL':
+            entry.idChars = [1, 5, 2]
+        else:
+            if entry.norm == "”" or entry.norm == "’":
+                t = "''"
+                entry.norm = '"'
+            if entry.norm == "“" or entry.norm == "‘":
+                t = "``"
+                entry.norm = '"'
+            if "’" in entry.norm:
+                entry.norm = re.sub(r"’", "'", entry.norm)
+                t = entry.norm
+            if entry.norm == "—":
+                entry.norm = "-"
+                t = "-"
+                
+            chars_of_word = [1]
+            for char in t:
+                if char in c2i:
+                    chars_of_word.append(c2i[char])
+                else:
+                    chars_of_word.append(0)
+            chars_of_word.append(2)
+            entry.idChars = chars_of_word
 
+        tokens.append(entry)  
+    return tokens
+    
 def write_conll(fn, conll_gen):
     with open(fn, 'w') as fh:
         for sentence in conll_gen:

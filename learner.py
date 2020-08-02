@@ -399,6 +399,197 @@ class jPosDepLearner:
     def Load(self, filename):
         self.model.populate(filename)
 
+    def predict_sentence(self, raw_sentence):
+        conll_sentence = utils.convert_raw_to_conll(raw_sentence, c2i, m2i, t2i, morph_dict)
+        if self.morphTagFlag:
+            sentence_context = []
+            last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+            rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
+            sentence_context.append(dynet.concatenate([last_state_char, rev_last_state_char]))
+            for entry in conll_sentence:
+                last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])
+                rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])
+                entry.char_rnn_states = [dynet.concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
+                sentence_context.append(entry.char_rnn_states[-1])
+
+        prev_encoding_mtag = None
+        prev_encoding_morph = None
+        for idx, entry in enumerate(conll_sentence):
+            wordvec = dynet.inputTensor(entry.embedding)
+
+            if self.morphTagFlag:
+                entry.vec = dynet.concatenate([wordvec, entry.char_rnn_states[-1]])
+            else:
+                last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
+                rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
+                entry.vec = dynet.concatenate([wordvec, last_state_char, rev_last_state_char])
+
+            if self.morphFlag:
+                if len(entry.norm) > 2:
+                    if self.goldMorphFlag:
+                        seg_vec = self.__getSegmentationVector(entry.norm)
+                        seg_vec = dynet.vecInput(seg_vec.dim()[0][0])
+                        seg_vec.set(entry.idMorphs)
+                        morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                        entry.pred_seg = morph_seg
+                    else:
+                        seg_vec = self.__getSegmentationVector(entry.norm)
+                        morph_seg = utils.generate_morphs(entry.norm, seg_vec.vec_value())
+                        entry.pred_seg = seg_vec.vec_value()
+                else:
+                    morph_seg = [entry.norm]
+                    entry.pred_seg =  entry.idMorphs
+
+                entry.seg = entry.idMorphs
+
+                last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
+                rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
+                    -1]
+                
+                if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
+                    current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                    encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                        + prev_encoding_morph*(1-self.encoding_composition_alpha)
+                    prev_encoding_morph = current_encoding_morph
+                else:
+                    encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+
+                entry.vec = dynet.concatenate([entry.vec, encoding_morph])
+
+            if self.morphTagFlag:
+                if self.goldMorphTagFlag:
+                    morph_tags = entry.idMorphTags
+                    entry.pred_tags = entry.idMorphTags
+                    entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
+                else:                                                    
+                    word_context = [c for i, c in enumerate(sentence_context) if i - 1 != idx]
+                    entry.pred_tags = self.generate(entry.char_rnn_states, word_context)
+                    morph_tags = entry.pred_tags
+                    entry.tags = entry.idMorphTags
+                    entry.pred_tags_tokens = [self.i2t[m_tag_id] for m_tag_id in entry.pred_tags]
+
+                last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
+                rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
+
+                if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                    current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                    encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
+                        + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                    prev_encoding_mtag = current_encoding_mtag
+                else:
+                    encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+
+                entry.vec = dynet.concatenate([entry.vec, encoding_mtag])
+
+            entry.pos_lstms = [entry.vec, entry.vec]
+            entry.headfov = None
+            entry.modfov = None
+
+            entry.rheadfov = None
+            entry.rmodfov = None
+
+        #Predicted pos tags
+        lstm_forward = self.pos_builders[0].initial_state()
+        lstm_backward = self.pos_builders[1].initial_state()
+        for entry, rentry in zip(conll_sentence, reversed(conll_sentence)):
+            lstm_forward = lstm_forward.add_input(entry.vec)
+            lstm_backward = lstm_backward.add_input(rentry.vec)
+
+            entry.pos_lstms[1] = lstm_forward.output()
+            rentry.pos_lstms[0] = lstm_backward.output()
+
+        for entry in conll_sentence:
+            entry.pos_vec = dynet.concatenate(entry.pos_lstms)
+
+        blstm_forward = self.pos_bbuilders[0].initial_state()
+        blstm_backward = self.pos_bbuilders[1].initial_state()
+
+        for entry, rentry in zip(conll_sentence, reversed(conll_sentence)):
+            blstm_forward = blstm_forward.add_input(entry.pos_vec)
+            blstm_backward = blstm_backward.add_input(rentry.pos_vec)
+            entry.pos_lstms[1] = blstm_forward.output()
+            rentry.pos_lstms[0] = blstm_backward.output()
+
+        concat_layer = [dynet.concatenate(entry.pos_lstms) for entry in conll_sentence]
+        outputFFlayer = self.ffSeqPredictor.predict_sequence(concat_layer)
+        predicted_pos_indices = [np.argmax(o.value()) for o in outputFFlayer]
+        predicted_postags = [self.id2pos[idx] for idx in predicted_pos_indices]
+        
+        # Add predicted pos tags
+        prev_encoding_pos = None
+        for entry, posid in zip(conll_sentence, predicted_pos_indices):
+            if prev_encoding_pos and self.pos_encoding_composition_type == "w_sum":
+                current_encoding_pos = self.plookup[posid]
+                encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
+                        + prev_encoding_pos*(1-self.encoding_composition_alpha)
+                prev_encoding_pos = current_encoding_pos
+            else:
+                encoding_pos = self.plookup[posid]
+
+            entry.vec = dynet.concatenate([entry.vec, encoding_pos])
+            entry.lstms = [entry.vec, entry.vec]
+
+
+        if self.blstmFlag:
+            lstm_forward = self.builders[0].initial_state()
+            lstm_backward = self.builders[1].initial_state()
+
+            for entry, rentry in zip(conll_sentence, reversed(conll_sentence)):
+                lstm_forward = lstm_forward.add_input(entry.vec)
+                lstm_backward = lstm_backward.add_input(rentry.vec)
+
+                entry.lstms[1] = lstm_forward.output()
+                rentry.lstms[0] = lstm_backward.output()
+
+            if self.bibiFlag:
+                for entry in conll_sentence:
+                    entry.vec = dynet.concatenate(entry.lstms)
+
+                blstm_forward = self.bbuilders[0].initial_state()
+                blstm_backward = self.bbuilders[1].initial_state()
+
+                for entry, rentry in zip(conll_sentence, reversed(conll_sentence)):
+                    blstm_forward = blstm_forward.add_input(entry.vec)
+                    blstm_backward = blstm_backward.add_input(rentry.vec)
+
+                    entry.lstms[1] = blstm_forward.output()
+                    rentry.lstms[0] = blstm_backward.output()
+
+        scores, exprs = self.__evaluate(conll_sentence)
+        heads = decoder.parse_proj(scores)
+
+        # Multiple roots: heading to the previous "rooted" one
+        rootCount = 0
+        rootWid = -1
+        for index, head in enumerate(heads):
+            if head == 0:
+                rootCount += 1
+                if rootCount == 1:
+                    rootWid = index
+                if rootCount > 1:
+                    heads[index] = rootWid
+                    rootWid = index
+
+        for entry, head, pos in zip(conll_sentence, heads, predicted_postags):
+            entry.pred_parent_id = head
+            entry.pred_relation = '_'
+            entry.pred_pos = pos
+
+        dump = False
+
+        if self.labelsFlag:
+            concat_layer = [self.__getRelVector(conll_sentence, head, modifier + 1) for modifier, head in
+                            enumerate(heads[1:])]
+            outputFFlayer = self.ffRelPredictor.predict_sequence(concat_layer)
+            predicted_rel_indices = [np.argmax(o.value()) for o in outputFFlayer]
+            predicted_rels = [self.irels[idx] for idx in predicted_rel_indices]
+            for modifier, head in enumerate(heads[1:]):
+                conll_sentence[modifier + 1].pred_relation = predicted_rels[modifier]
+
+        dynet.renew_cg()
+        if not dump:
+            return sentence       
+
     def Predict(self, conll_path):
         print("Predicting...")
         with open(conll_path, 'r') as conllFP:
