@@ -646,7 +646,7 @@ class jPosDepLearner:
 
         dynet.renew_cg()
         if not dump:
-            return sentence       
+            return conll_sentence       
 
     def Predict(self, conll_path):
         print("Predicting...")
