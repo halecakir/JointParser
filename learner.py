@@ -400,7 +400,7 @@ class jPosDepLearner:
         self.model.populate(filename)
 
     def predict_sentence(self, raw_sentence):
-        conll_sentence = utils.convert_raw_to_conll(raw_sentence, c2i, m2i, t2i, morph_dict)
+        conll_sentence = utils.convert_raw_to_conll(raw_sentence, self.c2i, self.m2i, self.t2i, self.morph_dict)
         if self.morphTagFlag:
             sentence_context = []
             last_state_char = self.char_rnn.predict_sequence([self.clookup[self.c2i["<start>"]]])[-1]
