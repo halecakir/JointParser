@@ -415,7 +415,7 @@ class jPosDepLearner:
         prev_encoding_mtag = None
         prev_encoding_morph = None
         for idx, entry in enumerate(conll_sentence):
-            wordvec = dynet.inputTensor(entry.embedding)
+            wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
             if self.morphTagFlag:
                 entry.vec = dynet.concatenate([wordvec, entry.char_rnn_states[-1]])
@@ -446,11 +446,29 @@ class jPosDepLearner:
                 rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                     -1]
                 
-                if prev_encoding_morph and self.morph_encoding_composition_type == "w_sum":
+                if self.morph_encoding_composition_type == "w_sum":
                     current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                    encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
-                        + prev_encoding_morph*(1-self.encoding_composition_alpha)
+                    if prev_encoding_morph:
+                        encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                        + current_encoding_morph*(1-self.encoding_composition_alpha)
+                    else:
+                        encoding_morph = current_encoding_morph                            
                     prev_encoding_morph = current_encoding_morph
+                elif self.morph_encoding_composition_type == "cwise_mult":
+                    current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                    if prev_encoding_morph:
+                        encoding_mtag = dynet.cmult(prev_encoding_morph, current_encoding_morph)
+                    else:
+                        encoding_morph = current_encoding_morph 
+                elif self.morph_encoding_composition_type == "mlp":
+                    current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                    if prev_encoding_morph:
+                        morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                        morhp_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                        encoding_mtag = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
+                                        + morhp_b
+                    else:
+                        encoding_morph = current_encoding_morph 
                 else:
                     encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -471,10 +489,30 @@ class jPosDepLearner:
                 last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                 rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
 
-                if prev_encoding_mtag and self.mtag_encoding_composition_type == "w_sum":
+                if  self.mtag_encoding_composition_type == "w_sum":
                     current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
-                    encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
-                        + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                    if prev_encoding_mtag:
+                        encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
+                            + current_encoding_mtag*(1-self.encoding_composition_alpha)
+                    else:
+                        encoding_mtag = current_encoding_mtag
+                    prev_encoding_mtag = current_encoding_mtag
+                elif self.mtag_encoding_composition_type == "cwise_mult":
+                    current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                    if prev_encoding_mtag:
+                        encoding_mtag = dynet.cmult(prev_encoding_mtag,current_encoding_mtag)
+                    else:
+                        encoding_mtag = current_encoding_mtag
+                    prev_encoding_mtag = current_encoding_mtag            
+                elif  self.mtag_encoding_composition_type == "mlp":
+                    current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                    if prev_encoding_mtag:
+                        mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
+                        mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
+                        encoding_mtag = mtag_w * dynet.concatenate([current_encoding_mtag, prev_encoding_mtag]) \
+                                        + mtag_b
+                    else:
+                        encoding_mtag = current_encoding_mtag
                     prev_encoding_mtag = current_encoding_mtag
                 else:
                     encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
@@ -518,10 +556,30 @@ class jPosDepLearner:
         # Add predicted pos tags
         prev_encoding_pos = None
         for entry, posid in zip(conll_sentence, predicted_pos_indices):
-            if prev_encoding_pos and self.pos_encoding_composition_type == "w_sum":
+            if self.pos_encoding_composition_type == "w_sum":
                 current_encoding_pos = self.plookup[posid]
-                encoding_pos = prev_encoding_morph*self.encoding_composition_alpha \
-                        + prev_encoding_pos*(1-self.encoding_composition_alpha)
+                if prev_encoding_pos:
+                    encoding_pos = prev_encoding_pos*self.encoding_composition_alpha \
+                            + current_encoding_pos*(1-self.encoding_composition_alpha)
+                else:
+                    encoding_pos = current_encoding_pos
+                prev_encoding_pos = current_encoding_pos
+            elif self.pos_encoding_composition_type == "cwise_mult":
+                current_encoding_pos = self.plookup[posid]
+                if prev_encoding_pos:
+                    encoding_mtag = dynet.cmult(prev_encoding_pos,current_encoding_pos)
+                else:
+                    encoding_pos = current_encoding_pos
+                prev_encoding_pos = current_encoding_pos
+            elif self.pos_encoding_composition_type == "mlp":
+                current_encoding_pos = self.plookup[posid]
+                if prev_encoding_pos:
+                    pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
+                    pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
+                    encoding_pos = pos_w * dynet.concatenate([current_encoding_pos, prev_encoding_pos]) \
+                                    + pos_b
+                else:
+                    encoding_pos = current_encoding_pos
                 prev_encoding_pos = current_encoding_pos
             else:
                 encoding_pos = self.plookup[posid]
