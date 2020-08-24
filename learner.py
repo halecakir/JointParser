@@ -13,6 +13,7 @@ from operator import itemgetter
 import utils, time, random, decoder
 import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
+import logging
 
 np.random.seed(1)
 
@@ -723,7 +724,7 @@ class jPosDepLearner:
         eerrors = 0
         etotal = 0
         start = time.time()
-
+        logging.info('Train started')
         with open(conll_path, 'r') as conllFP:
             shuffledData = list(read_conll(conllFP, self.c2i, self.m2i, self.t2i, self.morph_dict))
             random.shuffle(shuffledData)
@@ -735,6 +736,8 @@ class jPosDepLearner:
             mTagErrs = []
 
             for iSentence, sentence in enumerate(shuffledData):
+                if iSentence % 50 == 0:
+                    logging.info('Train sentence {} : {}'.format(iSentence, sentence))
                 if iSentence % 500 == 0 and iSentence != 0:
                     print("Processing sentence number: %d" % iSentence, ", Loss: %.4f" % (
                                 eloss / etotal), ", Time: %.2f" % (time.time() - start))

@@ -2,7 +2,8 @@
 
 if [ $# -ne 9 ]; then
     echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MORPH_COMP POS_COMP COMP_ALPHA'
-    echo 'Example: sh train.sh jointAll 2.2 train Turkish 15 w_sum w_sum w_sum 0.3'
+    echo 'Example1: sh train.sh jointAll 2.2 train Turkish 15 w_sum w_sum w_sum 0.3'
+	echo 'Example2: sh train.sh jointAll 2.2 predict Turkish 15 w_sum w_sum w_sum 0.1'
     exit 0
 fi
 
@@ -61,12 +62,13 @@ if [ $PREDICT = "predict" ]; then
 	echo "Predicting..."
     python jPTDP.py  	--type $TYPE \
 						--dynet-seed  123456789 \
-            			--dynet-mem 1000 \--predict \
-				        --model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
-				        --params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
-				        --outdir $OUTDIR \
-				        --train $UDTRAIN \
-				        --test $UDTEST \
+						--dynet-mem 1000 \
+						--predict \
+						--model "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel" \
+						--params "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-trialmodel.params" \
+						--outdir $OUTDIR \
+						--train $UDTRAIN \
+						--test $UDTEST \
 						--output "$LANG-$TYPE-MTAG_COMP=$MTAG_COMP-MORPH_COMP=$MORPH_COMP-POS_COMP=$POS_COMP-COMP_ALPHA=$COMP_ALPHA-test.conllu.pred" \
 						--mtag-encoding-composition-type $MTAG_COMP \
 						--encoding-composition-alpha $COMP_ALPHA \
