@@ -228,7 +228,7 @@ def load_embeddings_file(file_name, lower=False, type=None):
             type = "word2vec"
         elif file_type == "vec":
             type = "fasttext"
-        elif file_name == "txt":
+        elif file_type == "txt":
             type = "raw"
         else:
             type = "word2vec"

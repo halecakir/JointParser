@@ -91,8 +91,12 @@ class jPosDepLearner:
         self.pos_bbuilders = [dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
                               dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model)]
         
-        if self.pos_encoding_composition_type != "None":
+        if self.pos_encoding_composition_type == "mlp":
             self.pos_encoding_vertical_composition_w = self.model.add_parameters((self.pdims, 2 * self.pdims))
+            self.pos_encoding_vertical_composition_b = self.model.add_parameters((self.pdims))
+        elif self.pos_encoding_composition_type.startswith("mlp_n"):
+            n = int(self.pos_encoding_composition_type.split(":")[-1])
+            self.pos_encoding_vertical_composition_w = self.model.add_parameters((self.pdims, (n + 1) * (self.pdims)))
             self.pos_encoding_vertical_composition_b = self.model.add_parameters((self.pdims))
 
         if self.bibiFlag:
@@ -147,9 +151,14 @@ class jPosDepLearner:
             self.mlookup = self.model.add_lookup_parameters((len(m2i), self.mdims))
 
             self.morph_rnn = RNNSequencePredictor(dynet.LSTMBuilder(1, self.mdims*2, self.mdims*2, self.model))
-            if self.morph_encoding_composition_type != "None":
+            if self.morph_encoding_composition_type == "mlp":
+                #There may be bug: self.model.add_parameters((self.tdims, 8 * self.mdims)) should be self.model.add_parameters((2*self.tdims, 8 * self.mdims))
                 self.morph_encoding_vertical_composition_w = self.model.add_parameters((self.tdims, 8 * self.mdims))
                 self.morph_encoding_vertical_composition_b = self.model.add_parameters((self.tdims))
+            elif self.morph_encoding_composition_type.startswith("mlp_n"):
+                n = int(self.morph_encoding_composition_type.split(":")[-1])
+                self.morph_encoding_vertical_composition_w = self.model.add_parameters((4*self.tdims, (n+1) * (4 * self.mdims)))
+                self.morph_encoding_vertical_composition_b = self.model.add_parameters((4*self.tdims))
 
         if self.morphTagFlag:
             # All weights for morpheme taging will be here. (CURSOR)
@@ -173,10 +182,13 @@ class jPosDepLearner:
 
             self.mtag_rnn = RNNSequencePredictor(dynet.VanillaLSTMBuilder(1, self.tdims, self.tdims, self.model))
             self.tlookup = self.model.add_lookup_parameters((len(t2i), self.tdims))
-            if self.mtag_encoding_composition_type != "None":
+            if self.mtag_encoding_composition_type == "mlp":
                 self.mtag_encoding_vertical_composition_w = self.model.add_parameters((2*self.tdims, 4 * self.tdims))
                 self.mtag_encoding_vertical_composition_b = self.model.add_parameters((2*self.tdims))
-
+            elif self.mtag_encoding_composition_type.startswith("mlp_n"):
+                n = int(self.mtag_encoding_composition_type.split(":")[-1])
+                self.mtag_encoding_vertical_composition_w = self.model.add_parameters((2*self.tdims, (n+1) * (2 * self.tdims)))
+                self.mtag_encoding_vertical_composition_b = self.model.add_parameters((2*self.tdims))
 
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
@@ -419,6 +431,8 @@ class jPosDepLearner:
 
                 prev_encoding_mtag = None
                 prev_encoding_morph = None
+                prev_encoding_morph_list = []
+                prev_encoding_mtag_list = []
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
@@ -462,18 +476,30 @@ class jPosDepLearner:
                         elif self.morph_encoding_composition_type == "cwise_mult":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
-                                encoding_mtag = dynet.cmult(prev_encoding_morph, current_encoding_morph)
+                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
                             else:
                                 encoding_morph = current_encoding_morph 
                         elif self.morph_encoding_composition_type == "mlp":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
                                 morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morhp_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
-                                encoding_mtag = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
-                                                + morhp_b
+                                morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
+                                                + morph_b
                             else:
                                 encoding_morph = current_encoding_morph 
+                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                             
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n + 1):]
+                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                            morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                            encoding_morph = morph_w * dynet.concatenate(morph_encoding_list) \
+                                                + morph_b
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -519,6 +545,17 @@ class jPosDepLearner:
                             else:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
+                        elif  self.mtag_encoding_composition_type.startswith("mlp_n"):
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[-1])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n + 1):]
+                            mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
+                            mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
+                            encoding_mtag = mtag_w * dynet.concatenate(mtag_encoding_list) \
+                                                + mtag_b
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -560,6 +597,7 @@ class jPosDepLearner:
                 
                 # Add predicted pos tags
                 prev_encoding_pos = None
+                prev_encoding_pos_list = []
                 for entry, posid in zip(conll_sentence, predicted_pos_indices):
                     if self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[posid]
@@ -586,6 +624,18 @@ class jPosDepLearner:
                         else:
                             encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
+                    elif self.pos_encoding_composition_type.startswith("mlp_n"):
+                        current_encoding_pos = self.plookup[posid]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[-1])
+                            
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):]
+                        pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
+                        pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
+                        encoding_pos = pos_w * dynet.concatenate(pos_encoding_list) \
+                                            + pos_b
                     else:
                         encoding_pos = self.plookup[posid]
 
@@ -734,7 +784,7 @@ class jPosDepLearner:
             posErrs = []
             segErrs = []
             mTagErrs = []
-
+            
             for iSentence, sentence in enumerate(shuffledData):
                 if iSentence % 50 == 0:
                     logging.info('Train sentence {} : {}'.format(iSentence, sentence))
@@ -761,6 +811,9 @@ class jPosDepLearner:
 
                 prev_encoding_mtag = None
                 prev_encoding_morph = None
+                prev_encoding_morph_list = []
+                prev_encoding_mtag_list = []
+                prev_encoding_pos_list = []
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
@@ -799,24 +852,36 @@ class jPosDepLearner:
                                 encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
                                                 + current_encoding_morph*(1-self.encoding_composition_alpha)
                             else:
-                                encoding_morph = current_encoding_morph
-                            prprev_encoding_morphe = current_encoding_morph
+                                encoding_morph =  current_encoding_morph 
+                            prev_encoding_morph = current_encoding_morph
                         elif self.morph_encoding_composition_type == "cwise_mult":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
-                                encoding_mtag = dynet.cmult(prev_encoding_morph, current_encoding_morph)
+                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
                             else:
                                 encoding_morph = current_encoding_morph 
                         elif self.morph_encoding_composition_type == "mlp":
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
                                 morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morhp_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
-                                encoding_mtag = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
-                                                + morhp_b
+                                morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
+                                                + morph_b
                             else:
                                 encoding_morph = current_encoding_morph
                             prev_encoding_morph = current_encoding_morph
+                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                             
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                            morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                            encoding_morph = morph_w * dynet.concatenate(morph_encoding_list) \
+                                                        + morph_b
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -862,6 +927,17 @@ class jPosDepLearner:
                             else:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
+                        elif  self.mtag_encoding_composition_type.startswith("mlp_n"):
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[-1])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n + 1):]
+                            mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
+                            mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
+                            encoding_mtag = mtag_w * dynet.concatenate(mtag_encoding_list) \
+                                                + mtag_b
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -904,6 +980,7 @@ class jPosDepLearner:
 
                 # Add predicted pos tags
                 prev_encoding_pos = None
+                prev_encoding_pos_list = []
                 for entry, poses in zip(conll_sentence, outputFFlayer):
                     if  self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
@@ -916,7 +993,7 @@ class jPosDepLearner:
                     elif self.pos_encoding_composition_type == "cwise_mult":
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
                         if prev_encoding_pos:
-                            encoding_mtag = dynet.cmult(prev_encoding_pos,current_encoding_pos)
+                            encoding_pos = dynet.cmult(prev_encoding_pos,current_encoding_pos)
                         else:
                             encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
@@ -930,6 +1007,18 @@ class jPosDepLearner:
                         else:
                             encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
+                    elif self.pos_encoding_composition_type.startswith("mlp_n"):
+                        current_encoding_pos = self.plookup[np.argmax(poses.value())]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[-1])
+                            
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):]
+                        pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
+                        pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
+                        encoding_pos = pos_w * dynet.concatenate(pos_encoding_list) \
+                                            + pos_b
                     else:
                         encoding_pos = self.plookup[np.argmax(poses.value())]
 
