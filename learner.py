@@ -193,6 +193,18 @@ class jPosDepLearner:
                 self.mtag_encoding_vertical_composition_b1 = self.model.add_parameters((4*self.tdims))
                 self.mtag_encoding_vertical_composition_u = self.model.add_parameters((2*self.tdims, 4*self.tdims))
                 self.mtag_encoding_vertical_composition_b2 = self.model.add_parameters((2*self.tdims))
+        if self.mtag_encoding_composition_type.startswith("att"):
+            self.mtag_composition_w = self.model.add_parameters((self.tagging_attention_size, 2 * self.tdims))
+            self.mtag_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.mtag_composition_context = self.model.add_parameters(self.tagging_attention_size)
+        if self.morph_encoding_composition_type.startswith("att"):
+            self.morph_composition_w = self.model.add_parameters((self.tagging_attention_size, self.mdims*4))
+            self.morph_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.morph_composition_context = self.model.add_parameters(self.tagging_attention_size)
+        if self.pos_encoding_composition_type.startswith("att"):
+            self.pos_composition_w = self.model.add_parameters((self.tagging_attention_size, self.pdims))
+            self.pos_composition_b = self.model.add_parameters(self.tagging_attention_size)
+            self.pos_composition_context = self.model.add_parameters(self.tagging_attention_size)
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
             print("Initializing word embeddings by morph2vec")
@@ -317,6 +329,37 @@ class jPosDepLearner:
         context = input_mat * att_weights
         return context
 
+    def attend_encodings(self, encoded_sequence, encoding_type):
+        if encoding_type == "mtag":
+            w = dynet.parameter(self.mtag_composition_w) 
+            b = dynet.parameter(self.mtag_composition_b)
+            c = dynet.parameter(self.mtag_composition_context)
+        elif encoding_type == "morph":
+            w = dynet.parameter(self.morph_composition_w) 
+            b = dynet.parameter(self.morph_composition_b)
+            c = dynet.parameter(self.morph_composition_context)
+        elif encoding_type == "pos":
+            w = dynet.parameter(self.pos_composition_w) 
+            b = dynet.parameter(self.pos_composition_b)
+            c = dynet.parameter(self.pos_composition_context)
+
+        att_mlp_outputs = []
+        for e in encoded_sequence:
+            mlp_out = (w * e) + b
+            att_mlp_outputs.append(mlp_out)
+
+        lst = []
+        for o in att_mlp_outputs:
+            lst.append(dynet.exp(dynet.sum_elems(dynet.cmult(o, c))))
+
+        sum_all = dynet.esum(lst)
+
+        probs = [dynet.cdiv(e, sum_all) for e in lst]
+        att_context = dynet.esum(
+            [dynet.cmult(p, h) for p, h in zip(probs, encoded_sequence)]
+        )
+        return att_context
+
     def attend_context(self, input_mat, state, w1dt_context):
         w2_context = dynet.parameter(self.attention_w2_context)
         v_context = dynet.parameter(self.attention_v_context)
@@ -415,6 +458,13 @@ class jPosDepLearner:
     def Load(self, filename):
         self.model.populate(filename)
 
+    def max_pooling(self, encoded_sequence):
+        values = np.array([encoding.value() for encoding in encoded_sequence])
+        min_indexes = np.argmax(values, axis=0)
+        pooled_context = dynet.concatenate(
+            [encoded_sequence[row][col] for col, row in enumerate(min_indexes)])
+        return pooled_context
+
     def Predict(self, conll_path):
         print("Predicting...")
         with open(conll_path, 'r') as conllFP:
@@ -504,6 +554,17 @@ class jPosDepLearner:
                             morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
                             morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
                             encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2)  
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
+
+                            global_max = self.max_pooling(morph_contexts)
+                            encoding_morph = global_max
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -561,6 +622,17 @@ class jPosDepLearner:
                             mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
                             mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
                             encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[-1])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n+1):]
+                            mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
+
+                            global_max = self.max_pooling(mtag_contexts)
+                            encoding_mtag = global_max
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -640,7 +712,18 @@ class jPosDepLearner:
                         pos_b1 = dynet.parameter(self.pos_encoding_vertical_composition_b1)
                         pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
                         pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
-                        encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)                        
+                        encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)
+                    elif self.morph_encoding_composition_type.startswith("att_n"):
+                        current_encoding_pos =  self.plookup[posid]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[-1])
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):]
+                        pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
+
+                        global_max = self.max_pooling(pos_contexts)
+                        encoding_pos = global_max
                     else:
                         encoding_pos = self.plookup[posid]
 
@@ -888,6 +971,17 @@ class jPosDepLearner:
                             morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
                             morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
                             encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) + morph_b2)
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
+
+                            global_max = self.max_pooling(morph_contexts)
+                            encoding_morph = global_max
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -945,6 +1039,17 @@ class jPosDepLearner:
                             mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
                             mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
                             encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[-1])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n+1):]
+                            mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
+
+                            global_max = self.max_pooling(mtag_contexts)
+                            encoding_mtag = global_max
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -1027,6 +1132,17 @@ class jPosDepLearner:
                         pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
                         pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
                         encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)
+                    elif self.morph_encoding_composition_type.startswith("att_n"):
+                        current_encoding_pos =  self.plookup[np.argmax(poses.value())]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[-1])
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):]
+                        pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
+
+                        global_max = self.max_pooling(pos_contexts)
+                        encoding_pos = global_max
                     else:
                         encoding_pos = self.plookup[np.argmax(poses.value())]
 
