@@ -255,7 +255,7 @@ def load_embeddings_file(file_name, lower=False, type=None):
             reader.readline()
 
             count = 0
-            for line in reader:
+            for index, line in enumerate(reader):
                 try:
                     fields = line.strip().split()
                     vec = [float(x) for x in fields[1:]]
@@ -282,11 +282,12 @@ def load_embeddings_file(file_name, lower=False, type=None):
     else:
         vectors = {word: model[word] for word in words}
 
-    if "UNK" not in vectors:
+    """if "UNK" not in vectors:
         unk = np.mean([vectors[word] for word in vectors.keys()], axis=0)
         vectors["UNK"] = unk
-
-    return vectors, len(vectors["UNK"])
+    """
+    
+    return vectors, len(vectors[list(words)[0]])
 
 def save_embeddings(file_name, vectors, type=None):
     if type == None:
