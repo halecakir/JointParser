@@ -28,7 +28,7 @@ class jPosDepLearner:
         self.activations = {'tanh': dynet.tanh, 'sigmoid': dynet.logistic, 'relu': dynet.rectify,
                             'tanh3': (lambda x: dynet.tanh(dynet.cwise_multiply(dynet.cwise_multiply(x, x), x)))}
         self.activation = self.activations[options.activation]
-
+        self.vertical_activation = dynet.rectify
         self.blstmFlag = options.blstmFlag
         self.labelsFlag = options.labelsFlag
         self.costaugFlag = options.costaugFlag
@@ -69,7 +69,6 @@ class jPosDepLearner:
         self.clookup = self.model.add_lookup_parameters((len(c2i), self.cdims))
         self.plookup = self.model.add_lookup_parameters((len(pos), self.pdims))
         self.ext_embeddings = None
-
         if options.external_embedding is not None:
             print("External embeddding is loading...")
             ext_embeddings, ext_emb_dim = load_embeddings_file(options.external_embedding, lower=self.lowerCase, type=options.external_embedding_type)
@@ -82,7 +81,6 @@ class jPosDepLearner:
                     self.wlookup.init_row(self.vocab[word], ext_embeddings[word])
             self.ext_embeddings = ext_embeddings
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
-
         self.morph_dims = 2*2*self.mdims if self.morphFlag else 0
         self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
 
@@ -96,8 +94,11 @@ class jPosDepLearner:
             self.pos_encoding_vertical_composition_b = self.model.add_parameters((self.pdims))
         elif self.pos_encoding_composition_type.startswith("mlp_n"):
             n = int(self.pos_encoding_composition_type.split(":")[-1])
-            self.pos_encoding_vertical_composition_w = self.model.add_parameters((self.pdims, (n + 1) * (self.pdims)))
-            self.pos_encoding_vertical_composition_b = self.model.add_parameters((self.pdims))
+            self.pos_encoding_vertical_composition_w = self.model.add_parameters((2*self.pdims, (n + 1) * (self.pdims)))
+            self.pos_encoding_vertical_composition_b1 = self.model.add_parameters((2*self.pdims))
+            self.pos_encoding_vertical_composition_u = self.model.add_parameters((self.pdims, 2*self.pdims))
+            self.pos_encoding_vertical_composition_b2 = self.model.add_parameters((self.pdims))
+
 
         if self.bibiFlag:
             self.builders = [dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims + self.pdims, self.ldims, self.model),
@@ -157,9 +158,10 @@ class jPosDepLearner:
                 self.morph_encoding_vertical_composition_b = self.model.add_parameters((self.tdims))
             elif self.morph_encoding_composition_type.startswith("mlp_n"):
                 n = int(self.morph_encoding_composition_type.split(":")[-1])
-                self.morph_encoding_vertical_composition_w = self.model.add_parameters((4*self.tdims, (n+1) * (4 * self.mdims)))
-                self.morph_encoding_vertical_composition_b = self.model.add_parameters((4*self.tdims))
-
+                self.morph_encoding_vertical_composition_w = self.model.add_parameters((8*self.tdims, (n+1) * (4 * self.mdims)))
+                self.morph_encoding_vertical_composition_b1 = self.model.add_parameters((8*self.tdims))
+                self.morph_encoding_vertical_composition_u = self.model.add_parameters((4*self.tdims, 8*self.tdims))
+                self.morph_encoding_vertical_composition_b2 = self.model.add_parameters((4*self.tdims))
         if self.morphTagFlag:
             # All weights for morpheme taging will be here. (CURSOR)
 
@@ -187,9 +189,10 @@ class jPosDepLearner:
                 self.mtag_encoding_vertical_composition_b = self.model.add_parameters((2*self.tdims))
             elif self.mtag_encoding_composition_type.startswith("mlp_n"):
                 n = int(self.mtag_encoding_composition_type.split(":")[-1])
-                self.mtag_encoding_vertical_composition_w = self.model.add_parameters((2*self.tdims, (n+1) * (2 * self.tdims)))
-                self.mtag_encoding_vertical_composition_b = self.model.add_parameters((2*self.tdims))
-
+                self.mtag_encoding_vertical_composition_w = self.model.add_parameters((4*self.tdims, (n+1) * (2 * self.tdims)))
+                self.mtag_encoding_vertical_composition_b1 = self.model.add_parameters((4*self.tdims))
+                self.mtag_encoding_vertical_composition_u = self.model.add_parameters((2*self.tdims, 4*self.tdims))
+                self.mtag_encoding_vertical_composition_b2 = self.model.add_parameters((2*self.tdims))
     def initialize(self):
         if self.morphFlag and self.ext_embeddings:
             print("Initializing word embeddings by morph2vec")
@@ -483,9 +486,9 @@ class jPosDepLearner:
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
                                 morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                                morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
                                 encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
-                                                + morph_b
+                                                + morph_b1
                             else:
                                 encoding_morph = current_encoding_morph 
                         elif self.morph_encoding_composition_type.startswith("mlp_n"):
@@ -497,9 +500,10 @@ class jPosDepLearner:
                                                         for i in range(n + 1 - len(prev_encoding_morph_list))] \
                                                   +  prev_encoding_morph_list[-(n + 1):]
                             morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                            morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
-                            encoding_morph = morph_w * dynet.concatenate(morph_encoding_list) \
-                                                + morph_b
+                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
+                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
+                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
+                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2)  
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -539,9 +543,9 @@ class jPosDepLearner:
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
                                 mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
-                                mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
+                                mtag_b1 = dynet.parameter(self.mtag_encoding_vertical_composition_b1)
                                 encoding_mtag = mtag_w * dynet.concatenate([current_encoding_mtag, prev_encoding_mtag]) \
-                                                + mtag_b
+                                                + mtag_b1
                             else:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
@@ -553,9 +557,10 @@ class jPosDepLearner:
                                                         for i in range(n + 1 - len(prev_encoding_mtag_list))] \
                                                   +  prev_encoding_mtag_list[-(n + 1):]
                             mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
-                            mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
-                            encoding_mtag = mtag_w * dynet.concatenate(mtag_encoding_list) \
-                                                + mtag_b
+                            mtag_b1 = dynet.parameter(self.mtag_encoding_vertical_composition_b1)
+                            mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
+                            mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
+                            encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -618,9 +623,8 @@ class jPosDepLearner:
                         current_encoding_pos = self.plookup[posid]
                         if prev_encoding_pos:
                             pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
-                            pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
-                            encoding_pos = pos_w * dynet.concatenate([current_encoding_pos, prev_encoding_pos]) \
-                                            + pos_b
+                            pos_b1 = dynet.parameter(self.pos_encoding_vertical_composition_b1)
+                            encoding_pos = pos_w * prev_encoding_pos  + pos_b1
                         else:
                             encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
@@ -633,9 +637,10 @@ class jPosDepLearner:
                                                     for i in range(n + 1 - len(prev_encoding_pos_list))] \
                                                 +  prev_encoding_pos_list[-(n + 1):]
                         pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
-                        pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
-                        encoding_pos = pos_w * dynet.concatenate(pos_encoding_list) \
-                                            + pos_b
+                        pos_b1 = dynet.parameter(self.pos_encoding_vertical_composition_b1)
+                        pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
+                        pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
+                        encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)                        
                     else:
                         encoding_pos = self.plookup[posid]
 
@@ -864,7 +869,7 @@ class jPosDepLearner:
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             if prev_encoding_morph:
                                 morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                                morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b)
                                 encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
                                                 + morph_b
                             else:
@@ -879,9 +884,10 @@ class jPosDepLearner:
                                                         for i in range(n + 1 - len(prev_encoding_morph_list))] \
                                                   +  prev_encoding_morph_list[-(n+1):]
                             morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                            morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
-                            encoding_morph = morph_w * dynet.concatenate(morph_encoding_list) \
-                                                        + morph_b
+                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
+                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
+                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
+                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) + morph_b2)
                         else:
                             encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
 
@@ -921,9 +927,9 @@ class jPosDepLearner:
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
                                 mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
-                                mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
+                                mtag_b1 = dynet.parameter(self.mtag_encoding_vertical_composition_b1)
                                 encoding_mtag = mtag_w * dynet.concatenate([current_encoding_mtag, prev_encoding_mtag]) \
-                                                + mtag_b
+                                                + mtag_b1
                             else:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
@@ -935,9 +941,10 @@ class jPosDepLearner:
                                                         for i in range(n + 1 - len(prev_encoding_mtag_list))] \
                                                   +  prev_encoding_mtag_list[-(n + 1):]
                             mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
-                            mtag_b = dynet.parameter(self.mtag_encoding_vertical_composition_b)
-                            encoding_mtag = mtag_w * dynet.concatenate(mtag_encoding_list) \
-                                                + mtag_b
+                            mtag_b1 = dynet.parameter(self.mtag_encoding_vertical_composition_b1)
+                            mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
+                            mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
+                            encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
                         else:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
@@ -1001,7 +1008,7 @@ class jPosDepLearner:
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
                         if prev_encoding_pos:
                             pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
-                            pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
+                            pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b1)
                             encoding_pos = pos_w * dynet.concatenate([current_encoding_pos, prev_encoding_pos]) \
                                             + pos_b
                         else:
@@ -1016,9 +1023,10 @@ class jPosDepLearner:
                                                     for i in range(n + 1 - len(prev_encoding_pos_list))] \
                                                 +  prev_encoding_pos_list[-(n + 1):]
                         pos_w = dynet.parameter(self.pos_encoding_vertical_composition_w)
-                        pos_b = dynet.parameter(self.pos_encoding_vertical_composition_b)
-                        encoding_pos = pos_w * dynet.concatenate(pos_encoding_list) \
-                                            + pos_b
+                        pos_b1 = dynet.parameter(self.pos_encoding_vertical_composition_b1)
+                        pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
+                        pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
+                        encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)
                     else:
                         encoding_pos = self.plookup[np.argmax(poses.value())]
 
