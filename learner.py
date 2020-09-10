@@ -553,7 +553,21 @@ class jPosDepLearner:
                             morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
                             morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
                             morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
-                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2)  
+                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2) 
+                        elif self.morph_encoding_composition_type == "w_sum_2":
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            p1,p2 = None, None
+                            if len(prev_encoding_morph_list) > 2:
+                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
+                            elif len(prev_encoding_morph_list) == 2:
+                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2 
                         elif self.morph_encoding_composition_type.startswith("att_n"):
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             prev_encoding_morph_list.append(current_encoding_morph)
@@ -622,7 +636,21 @@ class jPosDepLearner:
                             mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
                             mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
                             encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
-                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                        elif self.mtag_encoding_composition_type == "w_sum_2":
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            p1,p2 = None, None
+                            if len(prev_encoding_mtag_list) > 2:
+                                p1, p2 = prev_encoding_mtag_list[-2], prev_encoding_mtag_list[-3]
+                            elif len(prev_encoding_mtag_list) == 2:
+                                p1, p2 = prev_encoding_mtag_list[-2], dynet.vecInput(current_encoding_mtag.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_mtag.dim()[0][0]), dynet.vecInput(current_encoding_mtag.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_mtag =  w0*current_encoding_mtag + w1*p1 + w2*p2
+                        elif self.mtag_encoding_composition_type.startswith("att_n"):
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             prev_encoding_mtag_list.append(current_encoding_mtag)
                             n = int(self.mtag_encoding_composition_type.split(":")[-1])
@@ -713,7 +741,21 @@ class jPosDepLearner:
                         pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
                         pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
                         encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)
-                    elif self.morph_encoding_composition_type.startswith("att_n"):
+                    elif self.pos_encoding_composition_type == "w_sum_2":
+                        current_encoding_pos =  self.plookup[posid]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        p1,p2 = None, None
+                        if len(prev_encoding_pos_list) > 2:
+                            p1, p2 = prev_encoding_pos_list[-2], prev_encoding_pos_list[-3]
+                        elif len(prev_encoding_pos_list) == 2:
+                            p1, p2 = prev_encoding_pos_list[-2], dynet.vecInput(current_encoding_pos.dim()[0][0])
+                        else:
+                            p1, p2 = dynet.vecInput(current_encoding_pos.dim()[0][0]), dynet.vecInput(current_encoding_pos.dim()[0][0])
+                        w1 = self.encoding_composition_alpha
+                        w2 = self.encoding_composition_alpha/2.0
+                        w0 = 1 - (w1+w2)
+                        encoding_pos =  w0*current_encoding_pos + w1*p1 + w2*p2
+                    elif self.pos_encoding_composition_type.startswith("att_n"):
                         current_encoding_pos =  self.plookup[posid]
                         prev_encoding_pos_list.append(current_encoding_pos)
                         n = int(self.pos_encoding_composition_type.split(":")[-1])
@@ -971,6 +1013,20 @@ class jPosDepLearner:
                             morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
                             morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
                             encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) + morph_b2)
+                        elif self.morph_encoding_composition_type == "w_sum_2":
+                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            p1,p2 = None, None
+                            if len(prev_encoding_morph_list) > 2:
+                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
+                            elif len(prev_encoding_morph_list) == 2:
+                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2
                         elif self.morph_encoding_composition_type.startswith("att_n"):
                             current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
                             prev_encoding_morph_list.append(current_encoding_morph)
@@ -1039,7 +1095,21 @@ class jPosDepLearner:
                             mtag_u = dynet.parameter(self.mtag_encoding_vertical_composition_u)
                             mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
                             encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
-                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                        elif self.mtag_encoding_composition_type == "w_sum_2":
+                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            p1,p2 = None, None
+                            if len(prev_encoding_mtag_list) > 2:
+                                p1, p2 = prev_encoding_mtag_list[-2], prev_encoding_mtag_list[-3]
+                            elif len(prev_encoding_mtag_list) == 2:
+                                p1, p2 = prev_encoding_mtag_list[-2], dynet.vecInput(current_encoding_mtag.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_mtag.dim()[0][0]), dynet.vecInput(current_encoding_mtag.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_mtag =  w0*current_encoding_mtag + w1*p1 + w2*p2
+                        elif self.mtag_encoding_composition_type.startswith("att_n"):
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             prev_encoding_mtag_list.append(current_encoding_mtag)
                             n = int(self.mtag_encoding_composition_type.split(":")[-1])
@@ -1119,6 +1189,20 @@ class jPosDepLearner:
                         else:
                             encoding_pos = current_encoding_pos
                         prev_encoding_pos = current_encoding_pos
+                    elif self.pos_encoding_composition_type == "w_sum_2":
+                        current_encoding_pos =  self.plookup[np.argmax(poses.value())]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        p1,p2 = None, None
+                        if len(prev_encoding_pos_list) > 2:
+                            p1, p2 = prev_encoding_pos_list[-2], prev_encoding_pos_list[-3]
+                        elif len(prev_encoding_pos_list) == 2:
+                            p1, p2 = prev_encoding_pos_list[-2], dynet.vecInput(current_encoding_pos.dim()[0][0])
+                        else:
+                            p1, p2 = dynet.vecInput(current_encoding_pos.dim()[0][0]), dynet.vecInput(current_encoding_pos.dim()[0][0])
+                        w1 = self.encoding_composition_alpha
+                        w2 = self.encoding_composition_alpha/2.0
+                        w0 = 1 - (w1+w2)
+                        encoding_pos =  w0*current_encoding_pos + w1*p1 + w2*p2
                     elif self.pos_encoding_composition_type.startswith("mlp_n"):
                         current_encoding_pos = self.plookup[np.argmax(poses.value())]
                         prev_encoding_pos_list.append(current_encoding_pos)
@@ -1132,7 +1216,7 @@ class jPosDepLearner:
                         pos_u = dynet.parameter(self.pos_encoding_vertical_composition_u)
                         pos_b2 = dynet.parameter(self.pos_encoding_vertical_composition_b2)
                         encoding_pos = self.vertical_activation(pos_u * self.vertical_activation(pos_w * dynet.concatenate(pos_encoding_list) + pos_b1) + pos_b2)
-                    elif self.morph_encoding_composition_type.startswith("att_n"):
+                    elif self.pos_encoding_composition_type.startswith("att_n"):
                         current_encoding_pos =  self.plookup[np.argmax(poses.value())]
                         prev_encoding_pos_list.append(current_encoding_pos)
                         n = int(self.pos_encoding_composition_type.split(":")[-1])
