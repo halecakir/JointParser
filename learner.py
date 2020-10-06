@@ -193,15 +193,15 @@ class jPosDepLearner:
                 self.mtag_encoding_vertical_composition_b1 = self.model.add_parameters((4*self.tdims))
                 self.mtag_encoding_vertical_composition_u = self.model.add_parameters((2*self.tdims, 4*self.tdims))
                 self.mtag_encoding_vertical_composition_b2 = self.model.add_parameters((2*self.tdims))
-        if self.mtag_encoding_composition_type.startswith("att"):
+        if self.mtag_encoding_composition_type.startswith("att") or self.mtag_encoding_composition_type.startswith("biatt"):
             self.mtag_composition_w = self.model.add_parameters((self.tagging_attention_size, 2 * self.tdims))
             self.mtag_composition_b = self.model.add_parameters(self.tagging_attention_size)
             self.mtag_composition_context = self.model.add_parameters(self.tagging_attention_size)
-        if self.morph_encoding_composition_type.startswith("att"):
+        if self.morph_encoding_composition_type.startswith("att") or self.morph_encoding_composition_type.startswith("biatt"):
             self.morph_composition_w = self.model.add_parameters((self.tagging_attention_size, self.mdims*4))
             self.morph_composition_b = self.model.add_parameters(self.tagging_attention_size)
             self.morph_composition_context = self.model.add_parameters(self.tagging_attention_size)
-        if self.pos_encoding_composition_type.startswith("att"):
+        if self.pos_encoding_composition_type.startswith("att") or self.pos_encoding_composition_type.startswith("biatt"):
             self.pos_composition_w = self.model.add_parameters((self.tagging_attention_size, self.pdims))
             self.pos_composition_b = self.model.add_parameters(self.tagging_attention_size)
             self.pos_composition_context = self.model.add_parameters(self.tagging_attention_size)
@@ -482,10 +482,8 @@ class jPosDepLearner:
                         entry.char_rnn_states = [dynet.concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
-                prev_encoding_mtag = None
-                prev_encoding_morph = None
-                prev_encoding_morph_list = []
-                prev_encoding_mtag_list = []
+                encoding_morphs = []
+                encoding_mtags = []
                 for idx, entry in enumerate(conll_sentence):
                     wordvec = self.wlookup[int(self.vocab.get(entry.norm, 0))] if self.wdims > 0 else None
 
@@ -515,75 +513,8 @@ class jPosDepLearner:
                         entry.seg = entry.idMorphs
 
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
-                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
-                            -1]
-                        
-                        if self.morph_encoding_composition_type == "w_sum":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
-                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
-                            else:
-                                encoding_morph = current_encoding_morph                            
-                            prev_encoding_morph = current_encoding_morph
-                        elif self.morph_encoding_composition_type == "cwise_mult":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
-                            else:
-                                encoding_morph = current_encoding_morph 
-                        elif self.morph_encoding_composition_type == "mlp":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
-                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
-                                                + morph_b1
-                            else:
-                                encoding_morph = current_encoding_morph 
-                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            n = int(self.morph_encoding_composition_type.split(":")[-1])
-                             
-                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
-                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
-                                                  +  prev_encoding_morph_list[-(n + 1):]
-                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
-                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
-                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
-                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2) 
-                        elif self.morph_encoding_composition_type == "w_sum_2":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            p1,p2 = None, None
-                            if len(prev_encoding_morph_list) > 2:
-                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
-                            elif len(prev_encoding_morph_list) == 2:
-                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
-                            else:
-                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
-                            w1 = self.encoding_composition_alpha
-                            w2 = self.encoding_composition_alpha/2.0
-                            w0 = 1 - (w1+w2)
-                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2 
-                        elif self.morph_encoding_composition_type.startswith("att_n"):
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            n = int(self.morph_encoding_composition_type.split(":")[-1])
-                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
-                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
-                                                  +  prev_encoding_morph_list[-(n+1):]
-                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
-
-                            global_max = self.max_pooling(morph_contexts)
-                            encoding_morph = global_max
-                        else:
-                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-
-                        entry.vec = dynet.concatenate([entry.vec, encoding_morph])
-
+                        rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[-1]
+                        encoding_morphs.append(dynet.concatenate([last_state_morph, rev_last_state_morph]))
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:
                             morph_tags = entry.idMorphTags
@@ -598,9 +529,88 @@ class jPosDepLearner:
 
                         last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in morph_tags])[-1]
                         rev_last_state_mtag = self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[-1]
+                        encoding_mtags.append(dynet.concatenate([last_state_mtag, rev_last_state_mtag]))
 
+                prev_encoding_mtag = None
+                prev_encoding_morph = None
+                prev_encoding_morph_list = []
+                prev_encoding_mtag_list = []
+
+                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(zip(conll_sentence, encoding_morphs, encoding_mtags)):
+                    if self.morphFlag:                        
+                        if self.morph_encoding_composition_type == "w_sum":
+                            if prev_encoding_morph:
+                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_morph = current_encoding_morph                            
+                            prev_encoding_morph = current_encoding_morph
+                        elif self.morph_encoding_composition_type == "cwise_mult":
+                            if prev_encoding_morph:
+                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
+                            else:
+                                encoding_morph = current_encoding_morph 
+                        elif self.morph_encoding_composition_type == "mlp":
+                            if prev_encoding_morph:
+                                morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                                morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
+                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
+                                                + morph_b1
+                            else:
+                                encoding_morph = current_encoding_morph 
+                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                             
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n + 1):]
+                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
+                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
+                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
+                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) +  morph_b2) 
+                        elif self.morph_encoding_composition_type == "w_sum_2":
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            p1,p2 = None, None
+                            if len(prev_encoding_morph_list) > 2:
+                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
+                            elif len(prev_encoding_morph_list) == 2:
+                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2 
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
+
+                            global_max = self.max_pooling(morph_contexts)
+                            encoding_morph = global_max
+                        elif self.morph_encoding_composition_type.startswith("biatt_n"):
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[1])
+                            n_b = int(self.morph_encoding_composition_type.split(":")[2])
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):] \
+                                                  +  encoding_morphs[idx+1:idx+1+n_b]
+                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
+                            global_max = self.max_pooling(morph_contexts)
+                            encoding_morph = global_max
+                        else:
+                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+
+                        entry.vec = dynet.concatenate([entry.vec, encoding_morph])
+
+                    if self.morphTagFlag:
                         if  self.mtag_encoding_composition_type == "w_sum":
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
                                 encoding_mtag = prev_encoding_mtag*self.encoding_composition_alpha \
                                     + current_encoding_mtag*(1-self.encoding_composition_alpha)
@@ -608,14 +618,12 @@ class jPosDepLearner:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
                         elif self.mtag_encoding_composition_type == "cwise_mult":
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
                                 encoding_mtag = dynet.cmult(prev_encoding_mtag,current_encoding_mtag)
                             else:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag            
                         elif  self.mtag_encoding_composition_type == "mlp":
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
                                 mtag_w = dynet.parameter(self.mtag_encoding_vertical_composition_w)
                                 mtag_b1 = dynet.parameter(self.mtag_encoding_vertical_composition_b1)
@@ -625,7 +633,6 @@ class jPosDepLearner:
                                 encoding_mtag = current_encoding_mtag
                             prev_encoding_mtag = current_encoding_mtag
                         elif  self.mtag_encoding_composition_type.startswith("mlp_n"):
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             prev_encoding_mtag_list.append(current_encoding_mtag)
                             n = int(self.mtag_encoding_composition_type.split(":")[-1])
                             mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
@@ -637,7 +644,6 @@ class jPosDepLearner:
                             mtag_b2 = dynet.parameter(self.mtag_encoding_vertical_composition_b2)
                             encoding_mtag = self.vertical_activation(mtag_u * self.vertical_activation(mtag_w * dynet.concatenate(mtag_encoding_list) + mtag_b1) + mtag_b2)
                         elif self.mtag_encoding_composition_type == "w_sum_2":
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             prev_encoding_mtag_list.append(current_encoding_mtag)
                             p1,p2 = None, None
                             if len(prev_encoding_mtag_list) > 2:
@@ -651,7 +657,6 @@ class jPosDepLearner:
                             w0 = 1 - (w1+w2)
                             encoding_mtag =  w0*current_encoding_mtag + w1*p1 + w2*p2
                         elif self.mtag_encoding_composition_type.startswith("att_n"):
-                            current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             prev_encoding_mtag_list.append(current_encoding_mtag)
                             n = int(self.mtag_encoding_composition_type.split(":")[-1])
                             mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
@@ -659,6 +664,17 @@ class jPosDepLearner:
                                                   +  prev_encoding_mtag_list[-(n+1):]
                             mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
 
+                            global_max = self.max_pooling(mtag_contexts)
+                            encoding_mtag = global_max
+                        elif self.mtag_encoding_composition_type.startswith("biatt_n"):
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[1])
+                            n_b = int(self.mtag_encoding_composition_type.split(":")[2])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n+1):] \
+                                                  +  encoding_mtags[idx+1:idx+1+n_b]
+                            mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
                             global_max = self.max_pooling(mtag_contexts)
                             encoding_mtag = global_max
                         else:
@@ -703,7 +719,7 @@ class jPosDepLearner:
                 # Add predicted pos tags
                 prev_encoding_pos = None
                 prev_encoding_pos_list = []
-                for entry, posid in zip(conll_sentence, predicted_pos_indices):
+                for idx, (entry, posid) in enumerate(zip(conll_sentence, predicted_pos_indices)):
                     if self.pos_encoding_composition_type == "w_sum":
                         current_encoding_pos = self.plookup[posid]
                         if prev_encoding_pos:
@@ -764,6 +780,19 @@ class jPosDepLearner:
                                                 +  prev_encoding_pos_list[-(n + 1):]
                         pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
 
+                        global_max = self.max_pooling(pos_contexts)
+                        encoding_pos = global_max
+                    elif self.pos_encoding_composition_type.startswith("biatt_n"):
+                        current_encoding_pos =  self.plookup[posid]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[1])
+                        n_b = int(self.pos_encoding_composition_type.split(":")[2])
+                        
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):] \
+                                                + [self.plookup[i] for i in predicted_pos_indices[idx+1:idx+1+n_b]]
+                        pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
                         global_max = self.max_pooling(pos_contexts)
                         encoding_pos = global_max
                     else:
@@ -939,11 +968,8 @@ class jPosDepLearner:
                         entry.char_rnn_states = [dynet.concatenate([f,b]) for f,b in zip(last_state_char, rev_last_state_char)]
                         sentence_context.append(entry.char_rnn_states[-1])
 
-                prev_encoding_mtag = None
-                prev_encoding_morph = None
-                prev_encoding_morph_list = []
-                prev_encoding_mtag_list = []
-                prev_encoding_pos_list = []
+                encoding_morphs = []
+                encoding_mtags = []
                 for idx, entry in enumerate(conll_sentence):
                     c = float(self.wordsCount.get(entry.norm, 0))
                     dropFlag = (random.random() < (c / (0.25 + c)))
@@ -955,7 +981,7 @@ class jPosDepLearner:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = dynet.dropout(dynet.concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
-
+                    
                     if self.morphFlag:
                         if len(entry.norm) > 2:
                             if self.goldMorphFlag:
@@ -975,73 +1001,7 @@ class jPosDepLearner:
                         last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in morph_seg])[-1]
                         rev_last_state_morph = self.morph_rnn.predict_sequence([self.__getMorphVector(morph) for morph in reversed(morph_seg)])[
                             -1]
-
-                        if self.morph_encoding_composition_type == "w_sum":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
-                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
-                            else:
-                                encoding_morph =  current_encoding_morph 
-                            prev_encoding_morph = current_encoding_morph
-                        elif self.morph_encoding_composition_type == "cwise_mult":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
-                            else:
-                                encoding_morph = current_encoding_morph 
-                        elif self.morph_encoding_composition_type == "mlp":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            if prev_encoding_morph:
-                                morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                                morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b)
-                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
-                                                + morph_b
-                            else:
-                                encoding_morph = current_encoding_morph
-                            prev_encoding_morph = current_encoding_morph
-                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            n = int(self.morph_encoding_composition_type.split(":")[-1])
-                             
-                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
-                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
-                                                  +  prev_encoding_morph_list[-(n+1):]
-                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
-                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
-                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
-                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
-                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) + morph_b2)
-                        elif self.morph_encoding_composition_type == "w_sum_2":
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            p1,p2 = None, None
-                            if len(prev_encoding_morph_list) > 2:
-                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
-                            elif len(prev_encoding_morph_list) == 2:
-                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
-                            else:
-                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
-                            w1 = self.encoding_composition_alpha
-                            w2 = self.encoding_composition_alpha/2.0
-                            w0 = 1 - (w1+w2)
-                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2
-                        elif self.morph_encoding_composition_type.startswith("att_n"):
-                            current_encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-                            prev_encoding_morph_list.append(current_encoding_morph)
-                            n = int(self.morph_encoding_composition_type.split(":")[-1])
-                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
-                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
-                                                  +  prev_encoding_morph_list[-(n+1):]
-                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
-
-                            global_max = self.max_pooling(morph_contexts)
-                            encoding_morph = global_max
-                        else:
-                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
-
-                        entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
+                        encoding_morphs.append(dynet.concatenate([last_state_morph, rev_last_state_morph]))
 
                     if self.morphTagFlag:
                         if self.goldMorphTagFlag:	
@@ -1057,7 +1017,80 @@ class jPosDepLearner:
                         rev_last_state_mtag = \
                         self.mtag_rnn.predict_sequence([self.tlookup[t] for t in reversed(morph_tags)])[
                             -1]
+                        encoding_mtags.append(dynet.concatenate([last_state_mtag, rev_last_state_mtag]))
 
+
+                prev_encoding_mtag = None
+                prev_encoding_morph = None
+                prev_encoding_morph_list = []
+                prev_encoding_mtag_list = []
+                prev_encoding_pos_list = []
+
+                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(zip(conll_sentence, encoding_morphs, encoding_mtags)):
+                    if self.morphFlag: 
+                        if self.morph_encoding_composition_type == "w_sum":
+                            if prev_encoding_morph:
+                                encoding_morph = prev_encoding_morph*self.encoding_composition_alpha \
+                                                + current_encoding_morph*(1-self.encoding_composition_alpha)
+                            else:
+                                encoding_morph =  current_encoding_morph 
+                            prev_encoding_morph = current_encoding_morph
+                        elif self.morph_encoding_composition_type == "cwise_mult":
+                            if prev_encoding_morph:
+                                encoding_morph = dynet.cmult(prev_encoding_morph, current_encoding_morph)
+                            else:
+                                encoding_morph = current_encoding_morph 
+                        elif self.morph_encoding_composition_type == "mlp":
+                            if prev_encoding_morph:
+                                morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                                morph_b = dynet.parameter(self.morph_encoding_vertical_composition_b)
+                                encoding_morph = morph_w * dynet.concatenate([current_encoding_morph, prev_encoding_morph]) \
+                                                + morph_b
+                            else:
+                                encoding_morph = current_encoding_morph
+                            prev_encoding_morph = current_encoding_morph
+                        elif self.morph_encoding_composition_type.startswith("mlp_n"):
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                             
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_w = dynet.parameter(self.morph_encoding_vertical_composition_w)
+                            morph_b1 = dynet.parameter(self.morph_encoding_vertical_composition_b1)
+                            morph_u = dynet.parameter(self.morph_encoding_vertical_composition_u)
+                            morph_b2 = dynet.parameter(self.morph_encoding_vertical_composition_b2)
+                            encoding_morph = self.vertical_activation(morph_u * self.vertical_activation(morph_w * dynet.concatenate(morph_encoding_list) + morph_b1) + morph_b2)
+                        elif self.morph_encoding_composition_type == "w_sum_2":
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            p1,p2 = None, None
+                            if len(prev_encoding_morph_list) > 2:
+                                p1, p2 = prev_encoding_morph_list[-2], prev_encoding_morph_list[-3]
+                            elif len(prev_encoding_morph_list) == 2:
+                                p1, p2 = prev_encoding_morph_list[-2], dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            else:
+                                p1, p2 = dynet.vecInput(current_encoding_morph.dim()[0][0]), dynet.vecInput(current_encoding_morph.dim()[0][0])
+                            w1 = self.encoding_composition_alpha
+                            w2 = self.encoding_composition_alpha/2.0
+                            w0 = 1 - (w1+w2)
+                            encoding_morph =  w0*current_encoding_morph + w1*p1 + w2*p2
+                        elif self.morph_encoding_composition_type.startswith("att_n"):
+                            prev_encoding_morph_list.append(current_encoding_morph)
+                            n = int(self.morph_encoding_composition_type.split(":")[-1])
+                            morph_encoding_list = [dynet.vecInput(current_encoding_morph.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_morph_list))] \
+                                                  +  prev_encoding_morph_list[-(n+1):]
+                            morph_contexts = [self.attend_encodings([m,current_encoding_morph], "morph") for m in morph_encoding_list]
+
+                            global_max = self.max_pooling(morph_contexts)
+                            encoding_morph = global_max
+                        else:
+                            encoding_morph = dynet.concatenate([last_state_morph, rev_last_state_morph])
+
+                        entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
+
+
+                    if self.morphTagFlag:
                         if self.mtag_encoding_composition_type == "w_sum":
                             current_encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
                             if prev_encoding_mtag:
@@ -1118,6 +1151,17 @@ class jPosDepLearner:
                                                   +  prev_encoding_mtag_list[-(n+1):]
                             mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
 
+                            global_max = self.max_pooling(mtag_contexts)
+                            encoding_mtag = global_max
+                        elif self.mtag_encoding_composition_type.startswith("biatt_n"):
+                            prev_encoding_mtag_list.append(current_encoding_mtag)
+                            n = int(self.mtag_encoding_composition_type.split(":")[1])
+                            n_b = int(self.mtag_encoding_composition_type.split(":")[2])
+                            mtag_encoding_list = [dynet.vecInput(current_encoding_mtag.dim()[0][0]) \
+                                                        for i in range(n + 1 - len(prev_encoding_mtag_list))] \
+                                                  +  prev_encoding_mtag_list[-(n+1):] \
+                                                  +  encoding_mtags[idx+1:idx+1+n_b]
+                            mtag_contexts = [self.attend_encodings([m,current_encoding_mtag], "mtag") for m in mtag_encoding_list]
                             global_max = self.max_pooling(mtag_contexts)
                             encoding_mtag = global_max
                         else:
@@ -1225,6 +1269,19 @@ class jPosDepLearner:
                                                 +  prev_encoding_pos_list[-(n + 1):]
                         pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
 
+                        global_max = self.max_pooling(pos_contexts)
+                        encoding_pos = global_max
+                    elif self.pos_encoding_composition_type.startswith("biatt_n"):
+                        current_encoding_pos =  self.plookup[np.argmax(poses.value())]
+                        prev_encoding_pos_list.append(current_encoding_pos)
+                        n = int(self.pos_encoding_composition_type.split(":")[1])
+                        n_b = int(self.pos_encoding_composition_type.split(":")[2])
+                        
+                        pos_encoding_list = [dynet.vecInput(current_encoding_pos.dim()[0][0]) \
+                                                    for i in range(n + 1 - len(prev_encoding_pos_list))] \
+                                                +  prev_encoding_pos_list[-(n + 1):] \
+                                                + [self.plookup[np.argmax(i.value())] for i in outputFFlayer[idx+1:idx+1+n_b]]
+                        pos_contexts = [self.attend_encodings([m,current_encoding_pos], "pos") for m in pos_encoding_list]
                         global_max = self.max_pooling(pos_contexts)
                         encoding_pos = global_max
                     else:
