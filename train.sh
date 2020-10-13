@@ -1,9 +1,9 @@
 #!/bin/bash
 
-if [ $# -ne 9 ]; then
-    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MORPH_COMP POS_COMP COMP_ALPHA'
-    echo 'Example1: sh train.sh jointAll 2.2 train Turkish 15 w_sum w_sum w_sum 0.3'
-	echo 'Example2: sh train.sh jointAll 2.2 predict Turkish 15 w_sum w_sum w_sum 0.1'
+if [ $# -ne 10 ]; then
+    echo 'Usage : sh train.sh EXPERIMENT_TYPE UDTYPE PREDICT/TRAIN LANGUAGE EPOCHNUM MTAG_COMP MORPH_COMP POS_COMP COMP_ALPHA LENGTH(long/short)'
+    echo 'Example1: sh train.sh jointAll 2.2 train Turkish 30 w_sum w_sum w_sum 0.3 long'
+	echo 'Example2: sh train.sh jointAll 2.2 predict Turkish 30 w_sum w_sum w_sum 0.1 long'
     exit 0
 fi
 
@@ -30,6 +30,7 @@ MTAG_COMP=$6
 MORPH_COMP=$7
 POS_COMP=$8
 COMP_ALPHA=$9
+LENGTH=${11}
 
 UDTRAIN=""
 UDTEST=""
@@ -41,21 +42,28 @@ export PYTHONHASHSEED=0
 echo "UD_TYPE is $UDTYPE"
 
 if [ $LANG = "Turkish" ]; then
-	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-train.conllu"
-	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-test.conllu"
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/$LENGTHtr_imst-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/$LENGTHtr_imst-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/tr.vectors.xz"
+	#UDTRAIN="/home/huseyin/Data/turkish_test.conllu"
+	#UDTEST="/home/huseyin/Data/turkish_test.conllu"
+	#PREVECTORS="/home/huseyin/Data/turkish_sample.txt"
 elif [ $LANG = "Finnish" ]; then
-	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-train.conllu"
-	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-test.conllu"
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/$LENGTHfi_tdt-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/$LENGTHfi_tdt-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/fi.vectors.xz"
 elif [ $LANG = "Hungarian" ]; then
-	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-train.conllu"
-	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-test.conllu"
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/$LENGTHhu_szeged-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/$LENGTHhu_szeged-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/hu.vectors.xz"
 elif [ $LANG = "Czech" ]; then
-	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-train.conllu"
-	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-test.conllu"
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/$LENGTHcs_pdt-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/$LENGTHcs_pdt-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/cs.vectors.xz"
+elif [ $LANG = "English" ]; then
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_English-EWT/$LENGTHen_ewt-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_English-EWT/$LENGTHen_ewt-ud-test.conllu"
+	PREVECTORS="$DATASET/$LANG/en.vectors.xz"
 fi
 
 if [ $PREDICT = "predict" ]; then
