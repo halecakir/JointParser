@@ -14,6 +14,7 @@ import utils, time, random, decoder
 import numpy as np
 from mnnl import FFSequencePredictor, Layer, RNNSequencePredictor, BiRNNSequencePredictor
 import logging
+import itertools
 
 np.random.seed(1)
 
@@ -83,7 +84,7 @@ class jPosDepLearner:
             print("Vocab size: %d; #words having pretrained vectors: %d" % (len(self.vocab), count))
         self.morph_dims = 2*2*self.mdims if self.morphFlag else 0
         self.mtag_dims = 2*self.tdims if self.morphTagFlag else 0
-
+        
         self.pos_builders = [dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model),
                              dynet.VanillaLSTMBuilder(1, self.wdims + self.cdims * 2 + self.morph_dims + self.mtag_dims, self.ldims, self.model)]
         self.pos_bbuilders = [dynet.VanillaLSTMBuilder(1, self.ldims * 2, self.ldims, self.model),
@@ -536,7 +537,7 @@ class jPosDepLearner:
                 prev_encoding_morph_list = []
                 prev_encoding_mtag_list = []
 
-                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(zip(conll_sentence, encoding_morphs, encoding_mtags)):
+                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(itertools.zip_longest(conll_sentence, encoding_morphs, encoding_mtags)):
                     if self.morphFlag:                        
                         if self.morph_encoding_composition_type == "w_sum":
                             if prev_encoding_morph:
@@ -981,7 +982,7 @@ class jPosDepLearner:
                         last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in entry.idChars])[-1]
                         rev_last_state_char = self.char_rnn.predict_sequence([self.clookup[c] for c in reversed(entry.idChars)])[-1]
                         entry.vec = dynet.dropout(dynet.concatenate([wordvec, last_state_char, rev_last_state_char]), 0.33)
-                    
+
                     if self.morphFlag:
                         if len(entry.norm) > 2:
                             if self.goldMorphFlag:
@@ -1026,7 +1027,7 @@ class jPosDepLearner:
                 prev_encoding_mtag_list = []
                 prev_encoding_pos_list = []
 
-                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(zip(conll_sentence, encoding_morphs, encoding_mtags)):
+                for idx, (entry, current_encoding_morph, current_encoding_mtag) in enumerate(itertools.zip_longest(conll_sentence, encoding_morphs, encoding_mtags)):
                     if self.morphFlag: 
                         if self.morph_encoding_composition_type == "w_sum":
                             if prev_encoding_morph:
@@ -1168,7 +1169,7 @@ class jPosDepLearner:
                             encoding_mtag = dynet.concatenate([last_state_mtag, rev_last_state_mtag])
 
                         entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_mtag, 0.33)])
-
+                        
                     entry.pos_lstms = [entry.vec, entry.vec]
                     entry.headfov = None
                     entry.modfov = None
