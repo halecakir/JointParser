@@ -12,7 +12,7 @@ if [[ -z "${DATASET}" ]]; then
 else
   DATASET="${DATASET}"
   echo "DATASET located in ${DATASET}"
-  
+
 fi
 
 
@@ -44,10 +44,14 @@ if [ $LANG = "Turkish" ]; then
 	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-train.conllu"
 	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Turkish-IMST/tr_imst-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/tr.vectors.xz"
+	#UDTRAIN="/home/huseyin/Data/turkish_test.conllu"
+	#UDTEST="/home/huseyin/Data/turkish_test.conllu"
+	#PREVECTORS="/home/huseyin/Data/turkish_sample.txt"
 elif [ $LANG = "Finnish" ]; then
 	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-train.conllu"
 	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Finnish-TDT/fi_tdt-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/fi.vectors.xz"
+	#PREVECTORS="$DATASET/cc.fi.300.vec"
 elif [ $LANG = "Hungarian" ]; then
 	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-train.conllu"
 	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Hungarian-Szeged/hu_szeged-ud-test.conllu"
@@ -200,7 +204,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 100 \
+						--wembedding 200 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \

@@ -1,0 +1,1 @@
+sh train.sh jointAll 2.2 train Turkish 30 CNN CNN CNN 0.3

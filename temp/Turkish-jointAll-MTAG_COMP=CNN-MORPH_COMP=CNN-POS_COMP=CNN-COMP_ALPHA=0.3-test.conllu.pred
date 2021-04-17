@@ -1,0 +1,363 @@
+# sent_id = mst-0003
+# text = Sanal parçacıklarsa bunların hiçbirini yapamazlar.
+1	Sanal	sanal	NOUN	Adj		2	amod	_	_
+2-3	parçacıklarsa	_	_	_	_	_	_	_	_
+2	parçacıklar	parçacık	NOUN	Noun		4	amod	_	_
+3	sa	i	NOUN	Zero		4	compound	_	_
+4	bunların	bu	NOUN	Demons		5	compound	_	_
+5	hiçbirini	hiçbiri	VERB	Quant		0	root	_	_
+6	yapamazlar	yap	VERB	Verb		5	punct	_	SpaceAfter=No
+7	.	.	PUNCT	Punc		6	punct	_	_
+
+# sent_id = mst-0004
+# text = Ona her şeyimi verdim.
+1	Ona	o	ROOT-POS	Pers		3	obl	_	_
+2	her	her	NOUN	Det		3	obl	_	_
+3	şeyimi	şey	VERB	Noun		0	root	_	_
+4	verdim	ver	VERB	Verb		3	punct	_	SpaceAfter=No
+5	.	.	PUNCT	Punc		4	punct	_	_
+
+# sent_id = mst-0006
+# text = Karşısında, pantolonu dizlerine dek ıslak, önlük torbası ham eriklerle dolu İbrahim dikiliyordu.
+1	Karşısında	karşı	NOUN	NAdj		3	amod	_	SpaceAfter=No
+2	,	,	NOUN	Punc		3	amod	_	_
+3	pantolonu	pantolon	NOUN	Noun		4	amod	_	_
+4	dizlerine	diz	NOUN	Noun		0	root	_	_
+5	dek	dek	NOUN	PCDat		4	amod	_	_
+6	ıslak	ıslak	NOUN	Adj		4	amod	_	SpaceAfter=No
+7	,	,	NOUN	Punc		6	amod	_	_
+8	önlük	önlük	NOUN	Noun		9	amod	_	_
+9	torbası	torba	NOUN	Noun		4	compound	_	_
+10	ham	ham	NOUN	Noun		11	compound	_	_
+11	eriklerle	erik	NOUN	Noun		9	compound	_	_
+12	dolu	dolu	NOUN	Adj		13	compound	_	_
+13	İbrahim	İbrahim	VERB	Prop		11	compound	_	_
+14	dikiliyordu	dikil	VERB	Verb		13	punct	_	SpaceAfter=No
+15	.	.	PUNCT	Punc		14	punct	_	_
+
+# sent_id = mst-0009
+# text = Nereden biliyorsunuz.
+1	Nereden	nere	VERB	Ques		2	obj	_	_
+2	biliyorsunuz	bil	VERB	Verb		0	root	_	SpaceAfter=No
+3	.	.	PUNCT	Punc		2	punct	_	_
+
+# sent_id = mst-0010
+# text = Aradığımı Buldum Sandım.
+1	Aradığımı	ara	NOUN	Verb		2	obl	_	_
+2	Buldum	bul	VERB	Verb		0	root	_	_
+3	Sandım	san	VERB	Verb		2	punct	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0011
+# text = Kahveleri bende içelim.
+1	Kahveleri	kahve	NOUN	Noun		2	obl	_	_
+2	bende	ben	VERB	Pers		3	punct	_	_
+3	içelim	iç	VERB	Verb		0	root	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0012
+# text = Ne diyeceğimi bilemedim.
+1	Ne	ne	ROOT-POS	Ques		2	obl	_	_
+2	diyeceğimi	de	VERB	Verb		3	punct	_	_
+3	bilemedim	bil	VERB	Verb		0	root	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0013
+# text = Kanamıyordu...
+1	Kanamıyordu	kana	VERB	Verb		0	root	_	SpaceAfter=No
+2	...	...	PUNCT	Punc		1	punct	_	_
+
+# sent_id = mst-0014
+# text = Süpürgen nerede.
+1	Süpürgen	süpürge	VERB	Noun		2	obj	_	_
+2	nerede	nere	VERB	Ques		0	root	_	SpaceAfter=No
+3	.	.	PUNCT	Punc		2	punct	_	_
+
+# sent_id = mst-0015
+# text = Bir taksi bulduk.
+1	Bir	bir	NOUN	ANum		2	obl	_	_
+2	taksi	taksi	VERB	Noun		0	root	_	_
+3	bulduk	bul	VERB	Verb		2	punct	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0016
+# text = Mebrure birden heyecanlanmıştı.
+1	Mebrure	Mebrure	NOUN	Prop		2	obl	_	_
+2	birden	birden	VERB	Adverb		3	obl	_	_
+3	heyecanlanmıştı	heyecanlan	VERB	Verb		0	root	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0017
+# text = " Buradaki üst düzey görüşmelerimizde turizm için ellerinden geleni yapacaklarını söylediler.
+1	"	"	ROOT-POS	Punc		2	amod	_	_
+2-3	Buradaki	_	_	_	_	_	_	_	_
+2	Burada	bura	NOUN	Noun		6	amod	_	_
+3	ki	ki	NOUN	Rel		6	amod	_	_
+4	üst	üst	NOUN	Adj		6	amod	_	_
+5	düzey	düzey	NOUN	Noun		6	amod	_	_
+6	görüşmelerimizde	görüşme	NOUN	Noun		7	amod	_	_
+7	turizm	turizm	NOUN	Noun		9	compound	_	_
+8	için	için	NOUN	PCNom		9	compound	_	_
+9	ellerinden	el	NOUN	Noun		10	compound	_	_
+10-11	geleni	_	_	_	_	_	_	_	_
+10	gelen	gel	NOUN	Verb		12	obl	_	_
+11	i	_	NOUN	Zero		12	compound	_	_
+12	yapacaklarını	yap	VERB	Verb		13	punct	_	_
+13	söylediler	söyle	VERB	Verb		0	root	_	SpaceAfter=No
+14	.	.	PUNCT	Punc		13	punct	_	_
+
+# sent_id = mst-0018
+# text = Gel bak, sana evi göstereyim.
+1	Gel	gel	ROOT-POS	Verb		2	amod	_	_
+2	bak	bak	NOUN	Verb		4	amod	_	SpaceAfter=No
+3	,	,	NOUN	Punc		4	compound	_	_
+4	sana	sen	NOUN	Pers		5	compound	_	_
+5	evi	ev	VERB	Noun		6	punct	_	_
+6	göstereyim	göster	VERB	Verb		0	root	_	SpaceAfter=No
+7	.	.	PUNCT	Punc		6	punct	_	_
+
+# sent_id = mst-0020
+# text = Kendileriyle görüştüğümden edindiğim izlenim, gazeteciye verilen bilgilerle alakasız bir haberin yayımlanmış olduğudur.
+1	Kendileriyle	kendi	NOUN	Reflex		2	amod	_	_
+2	görüştüğümden	görüş	NOUN	Verb		3	amod	_	_
+3	edindiğim	edin	NOUN	Verb		0	root	_	_
+4	izlenim	izlenim	NOUN	Noun		3	compound	_	SpaceAfter=No
+5	,	,	NOUN	Punc		4	amod	_	_
+6	gazeteciye	gazeteci	NOUN	Noun		4	compound	_	_
+7	verilen	ver	NOUN	Verb		8	compound	_	_
+8	bilgilerle	bilgi	NOUN	Noun		6	compound	_	_
+9	alakasız	alakasız	NOUN	Adj		8	compound	_	_
+10	bir	bir	NOUN	ANum		11	compound	_	_
+11	haberin	haber	NOUN	Noun		9	compound	_	_
+12	yayımlanmış	yayımla	VERB	Verb		11	compound	_	_
+13-14	olduğudur	_	_	_	_	_	_	_	SpaceAfter=No
+13	olduğu	ol	VERB	Verb		12	compound	_	_
+14	dur	i	PUNCT	Zero		13	punct	_	_
+15	.	.	PUNCT	Punc		14	punct	_	_
+
+# sent_id = mst-0021
+# text = Heyecanlı ve yorgun görünüyorsunuz, dedi.
+1	Heyecanlı	heyecanlı	NOUN	Adj		4	amod	_	_
+2	ve	ve	NOUN	Conj		4	amod	_	_
+3	yorgun	yorgun	NOUN	Adj		4	compound	_	_
+4	görünüyorsunuz	görün	VERB	Verb		0	root	_	SpaceAfter=No
+5	,	,	VERB	Punc		4	compound	_	_
+6	dedi	de	PUNCT	Verb		5	punct	_	SpaceAfter=No
+7	.	.	PUNCT	Punc		6	punct	_	_
+
+# sent_id = mst-0022
+# text = Gülümsemeler.
+1	Gülümsemeler	gülümse	VERB	Verb		0	root	_	SpaceAfter=No
+2	.	.	PUNCT	Punc		1	punct	_	_
+
+# sent_id = mst-0023
+# text = Külür'ün Kıran birbuçuk ay önce yeğeni doğum yapınca İstanbul'a gitti.
+1	Külür'ün	Külür	NOUN	Prop		2	amod	_	_
+2	Kıran	Kıran	NOUN	Prop		3	amod	_	_
+3	birbuçuk	birbuçuk	NOUN	ANum		6	amod	_	_
+4	ay	ay	NOUN	Noun		3	compound	_	_
+5	önce	önce	NOUN	PCAbl		6	compound	_	_
+6	yeğeni	yeğen	NOUN	Noun		8	compound	_	_
+7	doğum	doğum	NOUN	Noun		8	compound	_	_
+8	yapınca	yap	NOUN	Verb		9	obl	_	_
+9	İstanbul'a	İstanbul	VERB	Prop		0	root	_	_
+10	gitti	git	VERB	Verb		9	punct	_	SpaceAfter=No
+11	.	.	PUNCT	Punc		10	punct	_	_
+
+# sent_id = mst-0025
+# text = Kot pantolonla gelen hiçbir çocuk yoktu.
+1	Kot	kot	ROOT-POS	Adj		2	amod	_	_
+2	pantolonla	pantolon	NOUN	Noun		3	amod	_	_
+3	gelen	gel	NOUN	Verb		4	compound	_	_
+4	hiçbir	hiçbir	NOUN	Det		0	root	_	_
+5	çocuk	çocuk	VERB	Noun		4	compound	_	_
+6-7	yoktu	_	_	_	_	_	_	_	SpaceAfter=No
+6	yok	yok	VERB	Adverb		5	compound	_	_
+7	tu	i	PUNCT	Zero		6	punct	_	_
+8	.	.	PUNCT	Punc		7	punct	_	_
+
+# sent_id = mst-0026
+# text = Rekabet neler yaptırıyor.
+1	Rekabet	rekabet	NOUN	Noun		2	obl	_	_
+2	neler	ne	VERB	Ques		3	obl	_	_
+3	yaptırıyor	yap	VERB	Verb		0	root	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0027
+# text = Bu yüzden trendlerle çok ilgililer.
+1	Bu	bu	ROOT-POS	Det		3	amod	_	_
+2	yüzden	yüz	NOUN	Noun		3	compound	_	_
+3	trendlerle	trend	NOUN	Noun		4	obl	_	_
+4	çok	çok	VERB	Adverb		5	punct	_	_
+5	ilgililer	ilgili	VERB	NAdj		0	root	_	SpaceAfter=No
+6	.	.	PUNCT	Punc		5	punct	_	_
+
+# sent_id = mst-0028
+# text = Taşhan'ın kapısını itip içeriye girdim.
+1	Taşhan'ın	Taşhan	NOUN	Prop		2	amod	_	_
+2	kapısını	kapı	NOUN	Noun		4	obl	_	_
+3	itip	it	NOUN	Verb		4	compound	_	_
+4	içeriye	içeri	VERB	Noun		0	root	_	_
+5	girdim	gir	VERB	Verb		4	punct	_	SpaceAfter=No
+6	.	.	PUNCT	Punc		5	punct	_	_
+
+# sent_id = mst-0031
+# text = Yasal Valium, Diazem gibi haplardan eroine geçenler arasında beni en çok şaşkınlığa düşüren kişi, yetmiş yaşlarında şık giyimli bir kadın oldu.
+1	Yasal	yasal	NOUN	Adj		2	amod	_	_
+2	Valium	Valium	NOUN	Prop		0	root	_	SpaceAfter=No
+3	,	,	NOUN	Punc		4	amod	_	_
+4	Diazem	Diazem	NOUN	Prop		2	amod	_	_
+5	gibi	gibi	NOUN	PCNom		6	amod	_	_
+6	haplardan	hap	NOUN	Noun		4	amod	_	_
+7	eroine	eroin	NOUN	Noun		6	amod	_	_
+8-9	geçenler	_	_	_	_	_	_	_	_
+8	geçen	geç	NOUN	Verb		7	amod	_	_
+9	ler	_	NOUN	Zero		8	amod	_	_
+10	arasında	ara	NOUN	NAdj		7	amod	_	_
+11	beni	ben	NOUN	Pers		10	amod	_	_
+12	en	en	NOUN	Adverb		11	amod	_	_
+13	çok	çok	NOUN	Adj		7	amod	_	_
+14	şaşkınlığa	şaşkınlık	NOUN	Noun		6	amod	_	_
+15	düşüren	düşür	NOUN	Verb		14	amod	_	_
+16	kişi	kişi	NOUN	Noun		15	amod	_	SpaceAfter=No
+17	,	,	NOUN	Punc		15	amod	_	_
+18	yetmiş	yetmiş	NOUN	ANum		19	amod	_	_
+19	yaşlarında	yaş	NOUN	NAdj		6	compound	_	_
+20	şık	şık	NOUN	Adj		19	amod	_	_
+21-22	giyimli	_	_	_	_	_	_	_	_
+21	giyim	giyim	NOUN	Noun		19	compound	_	_
+22	li	li	NOUN	With		21	compound	_	_
+23	bir	bir	VERB	ANum		22	compound	_	_
+24	kadın	kadın	VERB	NAdj		23	compound	_	_
+25	oldu	ol	PUNCT	Verb		24	punct	_	SpaceAfter=No
+26	.	.	PUNCT	Punc		25	punct	_	_
+
+# sent_id = mst-0033
+# text = Penceresinden görünendir.
+1	Penceresinden	pencere	NOUN	Noun		2	obl	_	_
+2-3	görünendir	_	_	_	_	_	_	_	SpaceAfter=No
+2	görünen	görün	VERB	Verb		0	root	_	_
+3	dir	i	PUNCT	Zero		2	punct	_	_
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0036
+# text = Nefes nefese kalmıştım.
+1	Nefes	nefes	NOUN	Noun		2	obl	_	_
+2	nefese	nefes	VERB	Noun		3	obl	_	_
+3	kalmıştım	kal	VERB	Verb		0	root	_	SpaceAfter=No
+4	.	.	PUNCT	Punc		3	punct	_	_
+
+# sent_id = mst-0037
+# text = En sonunda içeriden gök gürültüsü gibi bir ses gelmiş.
+1	En	en	ROOT-POS	Adverb		3	amod	_	_
+2	sonunda	sonunda	NOUN	Adverb		3	amod	_	_
+3	içeriden	içeri	NOUN	Noun		0	root	_	_
+4	gök	gök	NOUN	Noun		5	compound	_	_
+5	gürültüsü	gürültü	NOUN	Noun		3	compound	_	_
+6	gibi	gibi	NOUN	PCNom		5	compound	_	_
+7	bir	bir	VERB	ANum		6	compound	_	_
+8	ses	ses	VERB	Noun		7	compound	_	_
+9	gelmiş	gel	VERB	Verb		8	punct	_	SpaceAfter=No
+10	.	.	PUNCT	Punc		9	punct	_	_
+
+# sent_id = mst-0038
+# text = Ramiz yerinden kalkmış Naci Beyin yanına kadar sokulmuştu.
+1	Ramiz	Ramiz	NOUN	Prop		2	amod	_	_
+2	yerinden	yer	NOUN	Noun		3	amod	_	_
+3	kalkmış	kalk	NOUN	Verb		0	root	_	_
+4	Naci	Naci	NOUN	Prop		3	compound	_	_
+5	Beyin	bey	NOUN	Noun		4	compound	_	_
+6	yanına	yan	NOUN	NAdj		5	compound	_	_
+7	kadar	kadar	VERB	PCDat		6	compound	_	_
+8	sokulmuştu	sok	VERB	Verb		7	punct	_	SpaceAfter=No
+9	.	.	PUNCT	Punc		8	punct	_	_
+
+# sent_id = mst-0040
+# text = Tümüyle meşru yollarla yüksek rakımlı tepeye çıkmış adamı şişman ve ahaliyi pişman eyliyorlar.
+1	Tümüyle	tümüyle	NOUN	Adverb		2	amod	_	_
+2	meşru	meşru	NOUN	Adj		3	amod	_	_
+3	yollarla	yol	NOUN	Noun		0	root	_	_
+4	yüksek	yüksek	NOUN	Adj		3	amod	_	_
+5-6	rakımlı	_	_	_	_	_	_	_	_
+5	rakım	rakım	NOUN	Noun		4	amod	_	_
+6	lı	li	NOUN	With		5	amod	_	_
+7	tepeye	tepe	NOUN	Noun		3	compound	_	_
+8	çıkmış	çık	NOUN	Verb		7	compound	_	_
+9	adamı	adam	NOUN	Noun		8	compound	_	_
+10	şişman	şişman	NOUN	Adj		9	compound	_	_
+11	ve	ve	NOUN	Conj		12	compound	_	_
+12	ahaliyi	ahali	NOUN	Noun		10	compound	_	_
+13	pişman	pişman	VERB	Adj		12	compound	_	_
+14	eyliyorlar	eyle	VERB	Verb		13	punct	_	SpaceAfter=No
+15	.	.	PUNCT	Punc		14	punct	_	_
+
+# sent_id = mst-0042
+# text = Niye?.
+1	Niye	niye	VERB	Adverb		0	root	_	SpaceAfter=No
+2	?	?	PUNCT	Punc		1	punct	_	SpaceAfter=No
+3	.	.	PUNCT	Punc		2	punct	_	_
+
+# sent_id = mst-0043
+# text = Tombul dizleri, masanın altından Mahmut'un dizlerine yapışmıştı.
+1	Tombul	tombul	NOUN	Adj		2	amod	_	_
+2	dizleri	diz	NOUN	Noun		4	amod	_	SpaceAfter=No
+3	,	,	NOUN	Punc		4	amod	_	_
+4	masanın	masa	NOUN	Noun		5	compound	_	_
+5	altından	alt	NOUN	NAdj		6	compound	_	_
+6	Mahmut'un	Mahmut	NOUN	Prop		7	compound	_	_
+7	dizlerine	diz	VERB	Noun		8	punct	_	_
+8	yapışmıştı	yapış	VERB	Verb		0	root	_	SpaceAfter=No
+9	.	.	PUNCT	Punc		8	punct	_	_
+
+# sent_id = mst-0044
+# text = Bu sefer aklına Milli Savunma Bakanlığı'nın Askeri Usul Ceza Yasası'na göre elinde tuttuğu bir yetki geldi.
+1	Bu	bu	ROOT-POS	Det		3	amod	_	_
+2	sefer	sefer	NOUN	Noun		3	amod	_	_
+3	aklına	akıl	NOUN	Noun		0	root	_	_
+4	Milli	milli	NOUN	Adj		5	amod	_	_
+5	Savunma	savun	NOUN	Verb		3	compound	_	_
+6	Bakanlığı'nın	bakanlık	NOUN	Noun		5	compound	_	_
+7	Askeri	askeri	NOUN	Adj		6	amod	_	_
+8	Usul	usul	NOUN	Noun		7	amod	_	_
+9	Ceza	ceza	NOUN	Noun		10	amod	_	_
+10	Yasası'na	yasa	NOUN	Noun		6	compound	_	_
+11	göre	göre	NOUN	PCDat		10	compound	_	_
+12	elinde	el	NOUN	Noun		10	compound	_	_
+13	tuttuğu	tut	NOUN	Verb		12	compound	_	_
+14	bir	bir	NOUN	ANum		13	compound	_	_
+15	yetki	yetki	VERB	Noun		14	compound	_	_
+16	geldi	gel	VERB	Verb		15	punct	_	SpaceAfter=No
+17	.	.	PUNCT	Punc		16	punct	_	_
+
+# sent_id = mst-0046
+# text = Kapıcı hergelesinin bakışını görsen, aç kurt gibi...
+1	Kapıcı	Kapıcı	NOUN	Prop		2	amod	_	_
+2	hergelesinin	hergele	NOUN	NAdj		3	amod	_	_
+3	bakışını	bakış	NOUN	Noun		0	root	_	_
+4	görsen	gör	NOUN	Verb		3	compound	_	SpaceAfter=No
+5	,	,	NOUN	Punc		4	compound	_	_
+6	aç	aç	NOUN	Adj		4	compound	_	_
+7	kurt	kurt	VERB	Noun		6	compound	_	_
+8	gibi	gibi	PUNCT	PCNom		7	punct	_	SpaceAfter=No
+9	...	...	PUNCT	Punc		8	punct	_	_
+
+# sent_id = mst-0048
+# text = Serin havayla hafifçe ürpermekten, hayatın gerçekliğine dokunmaktan ve sırlarını hissetmekten hoşnuttum.
+1	Serin	serin	NOUN	Adj		2	amod	_	_
+2	havayla	hava	NOUN	Noun		0	root	_	_
+3-4	hafifçe	_	_	_	_	_	_	_	_
+3	hafif	hafif	NOUN	Adj		2	amod	_	_
+4	çe	ce	NOUN	Ly		5	amod	_	_
+5	ürpermekten	ürper	NOUN	Verb		3	amod	_	SpaceAfter=No
+6	,	,	NOUN	Punc		5	amod	_	_
+7	hayatın	hayat	NOUN	Noun		8	amod	_	_
+8	gerçekliğine	gerçeklik	NOUN	Noun		5	compound	_	_
+9	dokunmaktan	dokun	NOUN	Verb		8	compound	_	_
+10	ve	ve	NOUN	Conj		9	compound	_	_
+11	sırlarını	sır	NOUN	Noun		9	compound	_	_
+12	hissetmekten	hisset	VERB	Verb		11	compound	_	_
+13-14	hoşnuttum	_	_	_	_	_	_	_	SpaceAfter=No
+13	hoşnut	hoşnut	VERB	NAdj		12	compound	_	_
+14	tum	i	PUNCT	Zero		13	punct	_	_
+15	.	.	PUNCT	Punc		14	punct	_	_
+
