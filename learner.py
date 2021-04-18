@@ -462,19 +462,20 @@ class jPosDepLearner:
                             -1]
                         all_encoding_morph_list.append(dynet.concatenate([last_state_morph, rev_last_state_morph]))
                 
-                conv1_morph = dynet.parameter(self.pConv1_morph)
-                for idx, entry in enumerate(conll_sentence):
-                    #CNN
-                    start_index = 0 if idx-self.cnn_window_prev < 0 else idx-self.cnn_window_prev
-                    prev_encoding = all_encoding_morph_list[start_index:idx] 
-                    after_encoding = all_encoding_morph_list[idx+1:idx+self.cnn_window_after+1]
-                    merged = prev_encoding + [all_encoding_morph_list[idx]] + after_encoding
-                    M = dynet.transpose(dynet.concatenate_cols(merged))
-                    x = dynet.conv2d(M, conv1_morph, [1, 1], is_valid=True)
-                    x_max = dynet.rectify(dynet.maxpooling2d(x, [x.dim()[0][0], 1], [1, 1]))
-                    x_max = dynet.reshape(x_max, (self.morph_cnn_filter_size,), batch_size=1)
-                    encoding_morph = x_max
-                    entry.vec = dynet.concatenate([entry.vec, encoding_morph])
+                if self.morphFlag:
+                    conv1_morph = dynet.parameter(self.pConv1_morph)
+                    for idx, entry in enumerate(conll_sentence):
+                        #CNN
+                        start_index = 0 if idx-self.cnn_window_prev < 0 else idx-self.cnn_window_prev
+                        prev_encoding = all_encoding_morph_list[start_index:idx] 
+                        after_encoding = all_encoding_morph_list[idx+1:idx+self.cnn_window_after+1]
+                        merged = prev_encoding + [all_encoding_morph_list[idx]] + after_encoding
+                        M = dynet.transpose(dynet.concatenate_cols(merged))
+                        x = dynet.conv2d(M, conv1_morph, [1, 1], is_valid=True)
+                        x_max = dynet.rectify(dynet.maxpooling2d(x, [x.dim()[0][0], 1], [1, 1]))
+                        x_max = dynet.reshape(x_max, (self.morph_cnn_filter_size,), batch_size=1)
+                        encoding_morph = x_max
+                        entry.vec = dynet.concatenate([entry.vec, encoding_morph])
 
                 for idx, entry in enumerate(conll_sentence):
                     if self.morphTagFlag:
@@ -765,20 +766,21 @@ class jPosDepLearner:
                             -1]
                         all_encoding_morph_list.append(dynet.concatenate([last_state_morph, rev_last_state_morph]))
                 
-                conv1_morph = dynet.parameter(self.pConv1_morph)
+                if self.morphFlag:
+                    conv1_morph = dynet.parameter(self.pConv1_morph)
 
-                for idx, entry in enumerate(conll_sentence):
-                    #CNN
-                    start_index = 0 if idx-self.cnn_window_prev < 0 else idx-self.cnn_window_prev
-                    prev_encoding = all_encoding_morph_list[start_index:idx] 
-                    after_encoding = all_encoding_morph_list[idx+1:idx+self.cnn_window_after+1]
-                    merged = prev_encoding + [all_encoding_morph_list[idx]] + after_encoding
-                    M = dynet.transpose(dynet.concatenate_cols(merged))
-                    x = dynet.conv2d(M, conv1_morph, [1, 1], is_valid=True)
-                    x_max = dynet.rectify(dynet.maxpooling2d(x, [x.dim()[0][0], 1], [1, 1]))
-                    x_max = dynet.reshape(x_max, (self.morph_cnn_filter_size,), batch_size=1)
-                    encoding_morph = x_max
-                    entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
+                    for idx, entry in enumerate(conll_sentence):
+                        #CNN
+                        start_index = 0 if idx-self.cnn_window_prev < 0 else idx-self.cnn_window_prev
+                        prev_encoding = all_encoding_morph_list[start_index:idx] 
+                        after_encoding = all_encoding_morph_list[idx+1:idx+self.cnn_window_after+1]
+                        merged = prev_encoding + [all_encoding_morph_list[idx]] + after_encoding
+                        M = dynet.transpose(dynet.concatenate_cols(merged))
+                        x = dynet.conv2d(M, conv1_morph, [1, 1], is_valid=True)
+                        x_max = dynet.rectify(dynet.maxpooling2d(x, [x.dim()[0][0], 1], [1, 1]))
+                        x_max = dynet.reshape(x_max, (self.morph_cnn_filter_size,), batch_size=1)
+                        encoding_morph = x_max
+                        entry.vec = dynet.concatenate([entry.vec, dynet.dropout(encoding_morph, 0.33)])
 
                 for idx, entry in enumerate(conll_sentence):
                     if self.morphTagFlag:
@@ -797,6 +799,7 @@ class jPosDepLearner:
                             -1]
                         all_encoding_mtag_list.append(dynet.concatenate([last_state_mtag, rev_last_state_mtag]))
                 
+
                 conv1_mtag = dynet.parameter(self.pConv1_mtag)
 
                 for idx, entry in enumerate(conll_sentence):
