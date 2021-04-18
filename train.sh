@@ -60,6 +60,10 @@ elif [ $LANG = "Czech" ]; then
 	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-train.conllu"
 	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_Czech-PDT/cs_pdt-ud-test.conllu"
 	PREVECTORS="$DATASET/$LANG/cs.vectors.xz"
+elif [ $LANG = "English" ]; then
+	UDTRAIN="$DATASET/ud-treebanks-v$UDTYPE/UD_English-EWT/en_ewt-ud-train.conllu"
+	UDTEST="$DATASET/ud-treebanks-v$UDTYPE/UD_English-EWT/en_ewt-ud-test.conllu"
+	PREVECTORS="$DATASET/$LANG/en.vectors.xz"
 fi
 
 if [ $PREDICT = "predict" ]; then
@@ -204,7 +208,7 @@ else
 						--lstmdims 128 \
 						--lstmlayers 2 \
 						--hidden 100 \
-						--wembedding 200 \
+						--wembedding 100 \
 						--cembedding 50 \
 						--membedding 50 \
 						--tembedding 50 \
